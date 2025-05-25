@@ -33,3 +33,4 @@ wheels/
 # Logs
 *.log
 results.txt
+test.py

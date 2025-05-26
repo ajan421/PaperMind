@@ -5,3 +5,5 @@ langgraph==0.2.18
 langsmith==0.1.114
 pdfplumber
 python-dotenv
+fastapi==0.110.0
+uvicorn==0.27.1

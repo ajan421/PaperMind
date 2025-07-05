@@ -1,0 +1,39 @@
+# Python cache files
+backend/__pycache__/
+*.py[cod]
+*$py.class
+backend/bin/ffmpeg.exe
+# Environment variables
+.env
+
+
+# Virtual environment
+venv/
+env/
+
+# Output files
+output/
+uploads/
+*.mp3
+*.wav
+*.pdf
+
+# Logs
+*.log
+logs/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated reports
+systematic_review_output/
+research_insights_*.md
+
+# Temporary files
+tmp/
+temp/

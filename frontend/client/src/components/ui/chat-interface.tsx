@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { Button } from './button';
 import { Textarea } from './textarea';
 import { ScrollArea } from './scroll-area';
@@ -80,7 +81,60 @@ export function ChatInterface({
                       <User className="h-4 w-4 mt-0.5 flex-shrink-0" />
                     )}
                     <div className="flex-1">
-                      <div className="whitespace-pre-wrap">{message.content}</div>
+                      {message.sender === 'assistant' ? (
+                        <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-headings:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0">
+                          <ReactMarkdown 
+                            components={{
+                              a: ({ href, children }) => (
+                                <a 
+                                  href={href} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline font-medium transition-colors"
+                                >
+                                  {children}
+                                </a>
+                              ),
+                              strong: ({ children }) => (
+                                <strong className="font-bold text-gray-900 dark:text-gray-100">
+                                  {children}
+                                </strong>
+                              ),
+                              p: ({ children }) => (
+                                <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>
+                              ),
+                              ol: ({ children }) => (
+                                <ol className="list-decimal list-outside ml-4 space-y-1 mb-3">{children}</ol>
+                              ),
+                              ul: ({ children }) => (
+                                <ul className="list-disc list-outside ml-4 space-y-1 mb-3">{children}</ul>
+                              ),
+                              li: ({ children }) => (
+                                <li className="leading-relaxed">{children}</li>
+                              ),
+                              h1: ({ children }) => (
+                                <h1 className="text-lg font-bold mb-2 mt-3 text-gray-900 dark:text-gray-100">{children}</h1>
+                              ),
+                              h2: ({ children }) => (
+                                <h2 className="text-base font-bold mb-2 mt-3 text-gray-900 dark:text-gray-100">{children}</h2>
+                              ),
+                              h3: ({ children }) => (
+                                <h3 className="text-sm font-bold mb-1 mt-2 text-gray-900 dark:text-gray-100">{children}</h3>
+                              ),
+                              code: ({ children }) => (
+                                <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm font-mono">{children}</code>
+                              ),
+                              pre: ({ children }) => (
+                                <pre className="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg overflow-x-auto text-sm">{children}</pre>
+                              ),
+                            }}
+                          >
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <div className="whitespace-pre-wrap">{message.content}</div>
+                      )}
                       {message.language && (
                         <div className="text-xs opacity-75 mt-1">
                           {message.language}

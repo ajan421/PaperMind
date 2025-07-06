@@ -27,6 +27,8 @@ from tavily import TavilyClient
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph
+from fastapi import APIRouter, HTTPException, Form
+from fastapi.responses import JSONResponse
 
 # Load environment variables
 load_dotenv()
@@ -686,3 +688,162 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# ============================================================================
+# FastAPI Integration
+# ============================================================================
+
+# Request/Response Models
+class InsightsRequest(BaseModel):
+    research_focus: str
+    max_papers: Optional[int] = 10
+    max_news: Optional[int] = 8
+
+class InsightsResponse(BaseModel):
+    status: str
+    research_focus: str
+    papers_analyzed: int
+    news_analyzed: int
+    paper_insights: List[Dict[str, Any]]
+    news_insights: List[Dict[str, Any]]
+    final_report: Optional[str] = None
+    report_file: Optional[str] = None
+
+# Create FastAPI router
+insights_router = APIRouter()
+
+@insights_router.post("/analyze", response_model=InsightsResponse)
+async def analyze_research_insights(request: InsightsRequest):
+    """
+    Generate comprehensive research insights report for a given topic.
+    
+    This endpoint:
+    1. Searches for recent research papers on ArXiv
+    2. Finds technical news related to the topic
+    3. Analyzes papers and news using AI
+    4. Generates a comprehensive report
+    """
+    try:
+        print(f"🚀 Starting Research Insights Analysis for: {request.research_focus}")
+        
+        # Create and run workflow
+        workflow = create_research_workflow()
+        
+        initial_state: GraphState = {
+            "research_papers": None,
+            "news_articles": None,
+            "paper_insights": None,
+            "news_insights": None,
+            "final_report": None,
+            "research_focus": request.research_focus
+        }
+        
+        # Execute workflow
+        final_state = workflow.invoke(initial_state)
+        
+        # Extract results
+        paper_insights = final_state.get('paper_insights', [])
+        news_insights = final_state.get('news_insights', [])
+        final_report = final_state.get('final_report', '')
+        
+        # Convert insights to serializable format
+        serializable_paper_insights = []
+        for insight in paper_insights:
+            if isinstance(insight, dict):
+                serializable_paper_insights.append(insight)
+        
+        serializable_news_insights = []
+        for insight in news_insights:
+            if isinstance(insight, dict):
+                serializable_news_insights.append(insight)
+        
+        # Save report to file if generated
+        report_file = None
+        if final_report:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            safe_topic = request.research_focus.replace(' ', '_').replace('/', '_')
+            report_file = f"research_insights_{safe_topic}_{timestamp}.md"
+            
+            try:
+                with open(report_file, 'w', encoding='utf-8') as f:
+                    f.write(final_report)
+                print(f"📄 Report saved to: {report_file}")
+            except Exception as e:
+                print(f"⚠️ Could not save report file: {e}")
+                report_file = None
+        
+        return InsightsResponse(
+            status="completed",
+            research_focus=request.research_focus,
+            papers_analyzed=len(serializable_paper_insights),
+            news_analyzed=len(serializable_news_insights),
+            paper_insights=serializable_paper_insights,
+            news_insights=serializable_news_insights,
+            final_report=final_report,
+            report_file=report_file
+        )
+        
+    except Exception as e:
+        print(f"❌ Error during research insights analysis: {e}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+@insights_router.get("/status")
+async def get_insights_status():
+    """Check if the Research Insights service is available."""
+    try:
+        # Check if required API keys are available
+        tavily_key = os.getenv("TAVILY_API_KEY")
+        openai_key = os.getenv("OPENAI_API_KEY")
+        
+        missing_keys = []
+        if not tavily_key:
+            missing_keys.append("TAVILY_API_KEY")
+        if not openai_key:
+            missing_keys.append("OPENAI_API_KEY")
+        
+        if missing_keys:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "unavailable",
+                    "message": f"Missing required API keys: {', '.join(missing_keys)}"
+                }
+            )
+        
+        return {
+            "status": "available",
+            "message": "Research Insights service is ready",
+            "features": [
+                "ArXiv research paper discovery",
+                "Technical news aggregation",
+                "AI-powered analysis",
+                "Comprehensive report generation"
+            ]
+        }
+        
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "message": f"Service check failed: {str(e)}"
+            }
+        )
+
+@insights_router.get("/sample-topics")
+async def get_sample_topics():
+    """Get sample research topics for testing."""
+    return {
+        "sample_topics": [
+            "large language models",
+            "computer vision",
+            "quantum computing",
+            "machine learning",
+            "natural language processing",
+            "deep learning",
+            "artificial intelligence",
+            "robotics",
+            "neural networks",
+            "reinforcement learning"
+        ]
+    }

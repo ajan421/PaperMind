@@ -7,6 +7,7 @@ from gap import gap_router
 from AgentPodcast import podcast_router
 from systematicreview import systematic_review_router
 from cag import cag_router
+from insights import insights_router
 
 app = FastAPI(
     title="PaperMind API - Research Tools",
@@ -22,6 +23,7 @@ app = FastAPI(
     - **Analyze Gaps**: Identify research opportunities in academic papers
     - **Systematic Review**: Generate comprehensive systematic reviews
     - **CAG System**: Cache-Augmented Generation with multi-language support
+    - **Research Insights**: Analyze latest research papers and news trends
     
     ### Features:
     - Real-time streaming responses
@@ -31,6 +33,7 @@ app = FastAPI(
     - Automated systematic review generation
     - Multi-language document Q&A with Google Gemini
     - Conversation history management
+    - AI/ML research paper and news analysis
     """,
     version="2.0.0",
     contact={
@@ -58,6 +61,7 @@ app.include_router(gap_router, prefix="/gaps", tags=["Gap Analysis"])
 app.include_router(podcast_router, prefix="/podcast", tags=["Podcast Generation"])
 app.include_router(systematic_review_router, prefix="/systematic-review", tags=["Systematic Review"])
 app.include_router(cag_router, prefix="/cag", tags=["Cache-Augmented Generation"])
+app.include_router(insights_router, prefix="/insights", tags=["Research Insights"])
 
 @app.get("/")
 async def root():
@@ -100,6 +104,11 @@ async def root():
                 "endpoint": "/cag/ask-question",
                 "method": "POST",
                 "description": "Ask questions about processed documents with multi-language support"
+            },
+            "research_insights": {
+                "endpoint": "/insights/analyze",
+                "method": "POST",
+                "description": "Generate comprehensive research insights from latest papers and news"
             }
         },
         "additional_endpoints": {
@@ -137,6 +146,16 @@ async def root():
                 "endpoint": "/cag/reset-session",
                 "method": "POST",
                 "description": "Reset CAG session and clear all data"
+            },
+            "insights_status": {
+                "endpoint": "/insights/status",
+                "method": "GET",
+                "description": "Check Research Insights service availability"
+            },
+            "insights_sample_topics": {
+                "endpoint": "/insights/sample-topics",
+                "method": "GET",
+                "description": "Get sample research topics for insights analysis"
             }
         },
         "documentation": "/docs",

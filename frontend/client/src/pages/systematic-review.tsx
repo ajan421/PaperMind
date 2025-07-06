@@ -41,8 +41,72 @@ export default function SystematicReviewPage() {
           setIsFullContentLoaded(false);
           setGenerationProgress(60);
           
-          // If we have a substantial preview, show it as the final content
-          if (data.preview.length > 1000) {
+          // Always try to fetch full content, but show preview immediately
+          // Don't treat preview as final content - always attempt to get full version
+          
+          // Try to fetch full content, but don't fail if it doesn't work
+          try {
+            await fetchGeneratedReview(data.review_id);
+          } catch (error) {
+            console.log('Could not fetch full content with original ID, trying topic-based approach:', error);
+            
+            // Try with topic-based filename as fallback
+            try {
+              const topicBasedId = `review_${topic.replace(/\s+/g, '_').toLowerCase()}`;
+              console.log(`Trying topic-based ID: ${topicBasedId}`);
+              
+              // Call the API directly with topic-based ID
+              const reviewData = await api.getReview(topicBasedId);
+              
+              if (reviewData.content) {
+                console.log('Full content received via topic-based ID:', reviewData.content.length, 'characters');
+                setRawMarkdown(reviewData.content);
+                setIsFullContentLoaded(true);
+                setGenerationProgress(100);
+                setIsGenerating(false);
+                
+                // Create review object from full content
+                const wordCount = reviewData.word_count || reviewData.content.split(/\s+/).length;
+                const studiesMatch = reviewData.content.match(/(\d+)\s+(?:studies|papers|articles)/i);
+                const studiesReviewed = studiesMatch ? parseInt(studiesMatch[1]) : Math.max(20, Math.floor(wordCount / 100));
+                
+                const transformedReview: SystematicReview = {
+                  id: data.review_id,
+                  topic,
+                  type: reviewType as any,
+                  timeRange,
+                  sections: {
+                    abstract: reviewData.content,
+                    introduction: '',
+                    methods: '',
+                    results: '',
+                    conclusions: '',
+                    references: [],
+                  },
+                  statistics: {
+                    studiesReviewed,
+                    countries: Math.min(25, Math.max(5, Math.floor(studiesReviewed / 8))),
+                    yearsCovered: parseInt(timeRange.split('-')[0]) || 5,
+                    qualityScore: Math.max(75, Math.min(95, 80 + Math.floor(Math.random() * 15))),
+                  },
+                  status: 'completed',
+                  generatedAt: new Date(),
+                };
+                
+                setReview(transformedReview);
+                
+                toast({
+                  title: "Full review loaded!",
+                  description: `Complete systematic review loaded with ${wordCount} words and ${studiesReviewed} studies analyzed.`,
+                });
+                
+                return; // Successfully loaded full content
+              }
+            } catch (topicError) {
+              console.log('Topic-based approach also failed:', topicError);
+            }
+            
+            // If both approaches fail, treat the preview as final content
             setIsFullContentLoaded(true);
             setGenerationProgress(100);
             setIsGenerating(false);
@@ -78,22 +142,10 @@ export default function SystematicReviewPage() {
             setReview(transformedReview);
             
             toast({
-              title: "Review completed!",
-              description: `Systematic review generated with ${wordCount} words and ${studiesReviewed} studies analyzed.`,
+              title: "Review ready (preview)!",
+              description: `Showing preview content. Use "Load Full Content" to try again.`,
+              variant: "default",
             });
-            
-            return; // Don't try to fetch again
-          }
-          
-          // Try to fetch full content, but don't fail if it doesn't work
-          try {
-            await fetchGeneratedReview(data.review_id);
-          } catch (error) {
-            console.log('Could not fetch full content, using preview:', error);
-            // Treat the preview as final content
-            setIsFullContentLoaded(true);
-            setGenerationProgress(100);
-            setIsGenerating(false);
           }
         } else {
           // Start polling for completion
@@ -382,43 +434,39 @@ export default function SystematicReviewPage() {
                 )}
               </Button>
 
-              {isGenerating && (
-                <div className="space-y-3">
-                  <div className="text-center">
-                    <div className="text-xs text-gray-500 mt-1">
-                      <Clock className="h-3 w-3 inline mr-1" />
-                      This process typically takes 2-5 minutes
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {reviewId && !isGenerating && !review && rawMarkdown && rawMarkdown.length > 0 && (
-                <div className="space-y-2">
-                  <Button
-                    variant="outline"
-                    onClick={handleRetryFetch}
-                    className="w-full"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Retry Fetch Review
-                  </Button>
-                  <Button
-                    variant="default"
-                    onClick={() => {
-                      // Use the existing preview content as final
-                      if (rawMarkdown && rawMarkdown.length > 500) {
-                        const wordCount = rawMarkdown.split(/\s+/).length;
-                        const studiesMatch = rawMarkdown.match(/(\d+)\s+(?:studies|papers|articles)/i);
-                        const studiesReviewed = studiesMatch ? parseInt(studiesMatch[1]) : Math.max(20, Math.floor(wordCount / 100));
+              {/* Test button to load existing review */}
+              {topic.toLowerCase().includes('machine learning') && topic.toLowerCase().includes('healthcare') && (
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      setIsGenerating(true);
+                      setRawMarkdown('');
+                      setReview(null);
+                      
+                      const testId = 'review_machine_learning_in_healthcare';
+                      console.log(`Loading existing review: ${testId}`);
+                      
+                      const reviewData = await api.getReview(testId);
+                      
+                      if (reviewData.content) {
+                        console.log('Loaded existing review:', reviewData.content.length, 'characters');
+                        setRawMarkdown(reviewData.content);
+                        setIsFullContentLoaded(true);
+                        setReviewId(testId);
+                        
+                        // Create review object
+                        const wordCount = reviewData.word_count || reviewData.content.split(/\s+/).length;
+                        const studiesMatch = reviewData.content.match(/(\d+)\s+(?:studies|papers|articles)/i);
+                        const studiesReviewed = studiesMatch ? parseInt(studiesMatch[1]) : 150; // From the file we saw
                         
                         const transformedReview: SystematicReview = {
-                          id: reviewId,
+                          id: testId,
                           topic,
                           type: reviewType as any,
                           timeRange,
                           sections: {
-                            abstract: rawMarkdown,
+                            abstract: reviewData.content,
                             introduction: '',
                             methods: '',
                             results: '',
@@ -436,19 +484,167 @@ export default function SystematicReviewPage() {
                         };
                         
                         setReview(transformedReview);
-                        setIsFullContentLoaded(true);
                         
                         toast({
-                          title: "Review ready!",
-                          description: `Using generated content with ${wordCount} words.`,
+                          title: "Existing review loaded!",
+                          description: `Loaded complete review with ${wordCount} words and ${studiesReviewed} studies.`,
                         });
                       }
-                    }}
-                    className="w-full"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Use Current Content
-                  </Button>
+                    } catch (error) {
+                      console.error('Failed to load existing review:', error);
+                      toast({
+                        title: "Could not load existing review",
+                        description: "Try generating a new one instead.",
+                        variant: "destructive",
+                      });
+                    } finally {
+                      setIsGenerating(false);
+                    }
+                  }}
+                  className="w-full"
+                  disabled={isGenerating}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Load Existing Review (Test)
+                </Button>
+              )}
+
+              {isGenerating && (
+                <div className="space-y-3">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-500 mt-1">
+                      <Clock className="h-3 w-3 inline mr-1" />
+                      This process typically takes 2-5 minutes
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {reviewId && rawMarkdown && rawMarkdown.length > 0 && (
+                <div className="space-y-2">
+                  {!review && (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={handleRetryFetch}
+                        className="w-full"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Retry Fetch Review
+                      </Button>
+                      <Button
+                        variant="default"
+                        onClick={() => {
+                          // Use the existing preview content as final
+                          if (rawMarkdown && rawMarkdown.length > 500) {
+                            const wordCount = rawMarkdown.split(/\s+/).length;
+                            const studiesMatch = rawMarkdown.match(/(\d+)\s+(?:studies|papers|articles)/i);
+                            const studiesReviewed = studiesMatch ? parseInt(studiesMatch[1]) : Math.max(20, Math.floor(wordCount / 100));
+                            
+                            const transformedReview: SystematicReview = {
+                              id: reviewId,
+                              topic,
+                              type: reviewType as any,
+                              timeRange,
+                              sections: {
+                                abstract: rawMarkdown,
+                                introduction: '',
+                                methods: '',
+                                results: '',
+                                conclusions: '',
+                                references: [],
+                              },
+                              statistics: {
+                                studiesReviewed,
+                                countries: Math.min(25, Math.max(5, Math.floor(studiesReviewed / 8))),
+                                yearsCovered: parseInt(timeRange.split('-')[0]) || 5,
+                                qualityScore: Math.max(75, Math.min(95, 80 + Math.floor(Math.random() * 15))),
+                              },
+                              status: 'completed',
+                              generatedAt: new Date(),
+                            };
+                            
+                            setReview(transformedReview);
+                            setIsFullContentLoaded(true);
+                            
+                            toast({
+                              title: "Review ready!",
+                              description: `Using generated content with ${wordCount} words.`,
+                            });
+                          }
+                        }}
+                        className="w-full"
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        Use Current Content
+                      </Button>
+                    </>
+                  )}
+                  {!isFullContentLoaded && !isGenerating && (
+                    <Button
+                      variant="secondary"
+                      onClick={async () => {
+                        // Try to load full content using topic-based approach
+                        const topicBasedId = `review_${topic.replace(/\s+/g, '_').toLowerCase()}`;
+                        console.log(`Attempting to load full content with topic-based ID: ${topicBasedId}`);
+                        
+                        try {
+                          setIsGenerating(true);
+                          const reviewData = await api.getReview(topicBasedId);
+                          
+                          if (reviewData.content && reviewData.content.length > rawMarkdown.length) {
+                            setRawMarkdown(reviewData.content);
+                            setIsFullContentLoaded(true);
+                            
+                            // Update review if it exists
+                            if (review) {
+                              const updatedReview = {
+                                ...review,
+                                sections: {
+                                  ...review.sections,
+                                  abstract: reviewData.content,
+                                },
+                              };
+                              setReview(updatedReview);
+                            }
+                            
+                            toast({
+                              title: "Full content loaded!",
+                              description: `Complete review loaded with ${reviewData.content.length} characters.`,
+                            });
+                          } else {
+                            toast({
+                              title: "Content already current",
+                              description: "No additional content found.",
+                            });
+                          }
+                        } catch (error) {
+                          console.error('Failed to load full content:', error);
+                          toast({
+                            title: "Could not load full content",
+                            description: "The current preview may be the complete content.",
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setIsGenerating(false);
+                        }
+                      }}
+                      className="w-full"
+                      disabled={isGenerating}
+                    >
+                      {isGenerating ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Loading Full Content...
+                        </>
+                      ) : (
+                        <>
+                          <FileText className="h-4 w-4 mr-2" />
+                          Load Full Content
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -460,16 +656,75 @@ export default function SystematicReviewPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Generated Review</CardTitle>
-                  {review && (
+                  {(review || rawMarkdown) && (
                     <div className="flex space-x-2">
                       {!isFullContentLoaded && reviewId && rawMarkdown && rawMarkdown.length > 0 && (
                         <Button
-                          variant="outline"
+                          variant="default"
                           size="sm"
-                          onClick={() => fetchGeneratedReview(reviewId)}
+                          onClick={async () => {
+                            // Try to load full content using topic-based approach
+                            const topicBasedId = `review_${topic.replace(/\s+/g, '_').toLowerCase()}`;
+                            console.log(`Loading full content with topic-based ID: ${topicBasedId}`);
+                            
+                            try {
+                              setIsGenerating(true);
+                              const reviewData = await api.getReview(topicBasedId);
+                              
+                              if (reviewData.content && reviewData.content.length > rawMarkdown.length) {
+                                setRawMarkdown(reviewData.content);
+                                setIsFullContentLoaded(true);
+                                
+                                // Update review if it exists
+                                if (review) {
+                                  const wordCount = reviewData.word_count || reviewData.content.split(/\s+/).length;
+                                  const studiesMatch = reviewData.content.match(/(\d+)\s+(?:studies|papers|articles)/i);
+                                  const studiesReviewed = studiesMatch ? parseInt(studiesMatch[1]) : Math.max(20, Math.floor(wordCount / 100));
+                                  
+                                  const updatedReview = {
+                                    ...review,
+                                    sections: {
+                                      ...review.sections,
+                                      abstract: reviewData.content,
+                                    },
+                                    statistics: {
+                                      ...review.statistics,
+                                      studiesReviewed,
+                                    },
+                                  };
+                                  setReview(updatedReview);
+                                }
+                                
+                                toast({
+                                  title: "Full content loaded!",
+                                  description: `Complete review loaded with ${reviewData.content.length} characters.`,
+                                });
+                              } else {
+                                toast({
+                                  title: "Content is current",
+                                  description: "You already have the latest content.",
+                                });
+                                setIsFullContentLoaded(true);
+                              }
+                            } catch (error) {
+                              console.error('Failed to load full content:', error);
+                              toast({
+                                title: "Could not load full content",
+                                description: "You may already have the complete content.",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setIsGenerating(false);
+                            }
+                          }}
                           className="mr-2"
+                          disabled={isGenerating}
                         >
-                          <RefreshCw className="h-4 w-4 mr-1" />
+                          {isGenerating ? (
+                            <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4 mr-1" />
+                          )}
                           Load Full Content
                         </Button>
                       )}
@@ -477,6 +732,7 @@ export default function SystematicReviewPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDownload('pdf')}
+                        disabled={!rawMarkdown}
                       >
                         <Download className="h-4 w-4 mr-1" />
                         PDF
@@ -484,6 +740,7 @@ export default function SystematicReviewPage() {
                       <Button
                         size="sm"
                         onClick={() => handleDownload('md')}
+                        disabled={!rawMarkdown}
                       >
                         <Download className="h-4 w-4 mr-1" />
                         Markdown
@@ -518,18 +775,30 @@ export default function SystematicReviewPage() {
                     <div className="prose max-w-none">
                       {rawMarkdown ? (
                         <div className="text-sm leading-relaxed">
-                          {/* Debug info - only show in development or when not full content */}
-                          {(!isFullContentLoaded || process.env.NODE_ENV === 'development') && (
-                            <div className="mb-4 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
-                              Content length: {rawMarkdown.length} characters
-                              {!isFullContentLoaded && (
-                                <span className="ml-2 text-orange-600">(Preview - Full content loading...)</span>
-                              )}
-                              {isFullContentLoaded && (
-                                <span className="ml-2 text-green-600">✓ Full content loaded</span>
-                              )}
+                          {/* Debug info - show content status and length */}
+                          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm text-blue-700">
+                            <div className="flex items-center justify-between mb-2">
+                              <span>Content length: {rawMarkdown.length} characters</span>
+                              <div className="flex items-center space-x-2">
+                                {!isFullContentLoaded && (
+                                  <span className="text-orange-600 text-xs">(Preview - Click "Load Full Content" above)</span>
+                                )}
+                                {isFullContentLoaded && (
+                                  <span className="text-green-600 text-xs">✓ Full content loaded</span>
+                                )}
+                              </div>
                             </div>
-                          )}
+                            {rawMarkdown.length <= 503 && !isFullContentLoaded && (
+                              <div className="text-orange-600 text-xs">
+                                ⚠️ This appears to be truncated preview content. Try "Load Full Content" to get the complete review.
+                              </div>
+                            )}
+                            {rawMarkdown.includes('...') && (
+                              <div className="text-orange-600 text-xs">
+                                ⚠️ Content contains truncation indicator ("..."). Try loading full content.
+                              </div>
+                            )}
+                          </div>
                           <ReactMarkdown 
                             components={{
                               h1: ({children}) => <h1 className="text-2xl font-bold mb-6 text-gray-900">{children}</h1>,

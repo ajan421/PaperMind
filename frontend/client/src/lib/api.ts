@@ -27,11 +27,10 @@ export const api = {
   },
 
   // Podcast Generator
-  async generatePodcast(file: File, style: string, duration: string): Promise<{ id: string; status: string }> {
+  async generatePodcast(file: File): Promise<{ audio_file: string; script_file: string; status: string }> {
     const formData = new FormData();
-    formData.append('file', file);
-    formData.append('style', style);
-    formData.append('duration', duration);
+    formData.append('pdf_file', file);
+    formData.append('stream_audio', 'false'); // Get file info instead of streaming
     
     const response = await fetch(`${API_BASE}/podcast/generate`, {
       method: 'POST',
@@ -45,14 +44,37 @@ export const api = {
     return response.json();
   },
 
-  async streamPodcast(filename: string): Promise<string> {
-    return `${API_BASE}/podcast/stream/${filename}`;
+  streamPodcast(filename: string): string {
+    const streamUrl = `${API_BASE}/podcast/stream/${filename}`;
+    console.log(`Generated streaming URL for ${filename}: ${streamUrl}`);
+    return streamUrl;
+  },
+
+  // Get all generated podcasts from backend output directory
+  async getGeneratedPodcasts(): Promise<{ podcasts: { filename: string; created_at: string; size: number }[] }> {
+    try {
+      const response = await fetch(`${API_BASE}/podcast/list`);
+      
+      if (!response.ok) {
+        // If endpoint doesn't exist yet, return empty array
+        if (response.status === 404) {
+          return { podcasts: [] };
+        }
+        throw new Error('Failed to fetch generated podcasts');
+      }
+      
+      return response.json();
+    } catch (error) {
+      // Fallback for when backend endpoint doesn't exist yet
+      console.warn('Podcast list endpoint not available yet:', error);
+      return { podcasts: [] };
+    }
   },
 
   // Research Gap Analyzer
-  async analyzeGaps(file: File): Promise<{ gaps: any[]; recommendations: string[]; confidence: number }> {
+  async analyzeGaps(file: File): Promise<{ status: string; analysis: any }> {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('pdf_file', file); // Backend expects 'pdf_file' parameter
     
     const response = await fetch(`${API_BASE}/gaps/analyze`, {
       method: 'POST',

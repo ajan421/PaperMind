@@ -1,9 +1,7 @@
-import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Progress } from '@/components/ui/progress';
 import { FileUpload } from '@/components/ui/file-upload';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { Mic } from 'lucide-react';
@@ -13,48 +11,72 @@ import { PodcastGeneration } from '@/types';
 
 export default function PodcastGenerator() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [style, setStyle] = useState('conversational');
-  const [duration, setDuration] = useState('10-15');
   const [generatedPodcasts, setGeneratedPodcasts] = useState<PodcastGeneration[]>([]);
-  const [generationProgress, setGenerationProgress] = useState(0);
   const { toast } = useToast();
+
+  // Load the podcast.mp3 file from output directory
+  useEffect(() => {
+    // Add the existing podcast.mp3 file to the list
+    const existingPodcast: PodcastGeneration = {
+      id: 'existing-podcast',
+      title: 'Generated Podcast',
+      filename: 'podcast.mp3',
+      duration: 0,
+      status: 'completed',
+      audioUrl: api.streamPodcast('podcast.mp3'),
+      generatedAt: new Date(),
+      style: 'conversational',
+    };
+    
+    console.log('Loading existing podcast.mp3:', existingPodcast);
+    setGeneratedPodcasts([existingPodcast]);
+  }, []);
 
   const generatePodcastMutation = useMutation({
     mutationFn: async () => {
       if (!uploadedFile) throw new Error('No file uploaded');
-      return api.generatePodcast(uploadedFile, style, duration);
+      return api.generatePodcast(uploadedFile);
     },
     onSuccess: (data) => {
-      // Simulate progress for demo
-      const interval = setInterval(() => {
-        setGenerationProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            // Add mock podcast to list
-            const newPodcast: PodcastGeneration = {
-              id: data.id,
-              title: uploadedFile?.name.replace('.pdf', '') || 'Generated Podcast',
-              filename: 'generated-podcast.mp3',
-              duration: 765, // 12:45
-              status: 'completed',
-              audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', // Mock URL
-              generatedAt: new Date(),
-              style: style as any,
-            };
-            setGeneratedPodcasts(prev => [newPodcast, ...prev]);
-            setGenerationProgress(0);
-            toast({
-              title: "Podcast generated!",
-              description: "Your podcast is ready to listen.",
-            });
-            return 0;
-          }
-          return prev + 10;
-        });
-      }, 500);
+      console.log('Podcast generation response:', data);
+      
+      // Create podcast entry with actual backend data
+      const podcastTitle = uploadedFile?.name.replace('.pdf', '').replace(/[-_]/g, ' ') || 'Generated Podcast';
+      
+      // Ensure we have the filename from backend response
+      if (!data.audio_file) {
+        console.error('Backend response missing audio_file:', data);
+        throw new Error('No audio file returned from backend');
+      }
+      
+      const streamingUrl = api.streamPodcast(data.audio_file);
+      console.log(`Created streaming URL: ${streamingUrl} for file: ${data.audio_file}`);
+      
+      const newPodcast: PodcastGeneration = {
+        id: Date.now().toString(),
+        title: podcastTitle,
+        filename: data.audio_file,
+        duration: 0, // Will be loaded when audio metadata loads
+        status: 'completed',
+        audioUrl: streamingUrl, // Stream endpoint: /podcast/stream/{filename}
+        generatedAt: new Date(),
+        style: 'conversational',
+      };
+      
+      console.log('Adding new podcast to list:', newPodcast);
+      setGeneratedPodcasts(prev => {
+        const updated = [newPodcast, ...prev];
+        console.log('Updated podcasts list:', updated);
+        return updated;
+      });
+      
+      toast({
+        title: "Podcast generated!",
+        description: `Your podcast "${newPodcast.title}" is ready to play.`,
+      });
     },
     onError: (error) => {
-      setGenerationProgress(0);
+      console.error('Podcast generation error:', error);
       toast({
         title: "Error",
         description: error.message,
@@ -66,6 +88,7 @@ export default function PodcastGenerator() {
   const handleFilesChange = (files: File[]) => {
     if (files.length > 0) {
       setUploadedFile(files[0]);
+      console.log('File uploaded:', files[0].name);
     }
   };
 
@@ -78,16 +101,14 @@ export default function PodcastGenerator() {
       });
       return;
     }
-    setGenerationProgress(1);
-    generatePodcastMutation.mutate();
-  };
-
-  const handleDownload = (podcast: PodcastGeneration) => {
-    // Mock download functionality
+    
+    console.log('Starting podcast generation for:', uploadedFile.name);
     toast({
-      title: "Download started",
-      description: `Downloading ${podcast.title}...`,
+      title: "Generating podcast...",
+      description: "This may take a few minutes. Please wait.",
     });
+    
+    generatePodcastMutation.mutate();
   };
 
   return (
@@ -103,7 +124,7 @@ export default function PodcastGenerator() {
                 Podcast Generator
               </h1>
               <p className="text-lg text-gray-600 dark:text-gray-300">
-                Transform research papers into engaging podcast conversations
+                Transform research papers into engaging conversational podcasts and play them instantly
               </p>
             </div>
           </div>
@@ -128,52 +149,24 @@ export default function PodcastGenerator() {
                 placeholder="Upload Research Paper"
               />
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Podcast Style</label>
-                  <Select value={style} onValueChange={setStyle}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="conversational">Conversational Interview</SelectItem>
-                      <SelectItem value="academic">Academic Discussion</SelectItem>
-                      <SelectItem value="popular">Popular Science</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Duration</label>
-                  <Select value={duration} onValueChange={setDuration}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="5-10">5-10 minutes</SelectItem>
-                      <SelectItem value="10-15">10-15 minutes</SelectItem>
-                      <SelectItem value="15-20">15-20 minutes</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
               <Button
                 onClick={handleGenerate}
                 disabled={!uploadedFile || generatePodcastMutation.isPending}
                 className="w-full"
               >
-                Generate Podcast
+                {generatePodcastMutation.isPending ? 'Generating...' : 'Generate Podcast'}
               </Button>
 
-              {generationProgress > 0 && (
+              {generatePodcastMutation.isPending && (
                 <div className="space-y-2">
                   <div className="text-center">
                     <div className="text-sm text-muted-foreground">
                       Generating podcast... This may take a few minutes.
                     </div>
                   </div>
-                  <Progress value={generationProgress} className="w-full" />
+                  <div className="flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -182,13 +175,13 @@ export default function PodcastGenerator() {
           {/* Player Section */}
           <Card className="material-elevation-2">
             <CardHeader>
-              <CardTitle>Generated Podcasts</CardTitle>
+              <CardTitle>Play Podcast</CardTitle>
             </CardHeader>
             <CardContent>
               {generatedPodcasts.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <div className="mb-4">🎙️</div>
-                  <p>No podcasts generated yet. Upload a PDF and generate your first podcast!</p>
+                  <div className="mb-4 text-4xl">🎧</div>
+                  <p>No podcasts available to play. Generate your first podcast from a PDF!</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -197,8 +190,7 @@ export default function PodcastGenerator() {
                       key={podcast.id}
                       src={podcast.audioUrl!}
                       title={podcast.title}
-                      subtitle={`Generated ${podcast.generatedAt.toLocaleDateString()} • ${Math.floor(podcast.duration / 60)}:${(podcast.duration % 60).toString().padStart(2, '0')}`}
-                      onDownload={() => handleDownload(podcast)}
+                      subtitle={`Ready to play • Generated ${podcast.generatedAt.toLocaleDateString()}`}
                     />
                   ))}
                 </div>

@@ -31,17 +31,36 @@ export function AudioPlayer({
     const audio = audioRef.current;
     if (!audio) return;
 
+    console.log(`AudioPlayer initialized with src: ${src}`);
+
     const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
-    const handleLoadedMetadata = () => setDuration(audio.duration);
-    const handleLoadStart = () => setIsLoading(true);
-    const handleCanPlay = () => setIsLoading(false);
-    const handleEnded = () => setIsPlaying(false);
+    const handleLoadedMetadata = () => {
+      setDuration(audio.duration);
+      console.log(`Audio metadata loaded - Duration: ${audio.duration}s for ${src}`);
+    };
+    const handleLoadStart = () => {
+      setIsLoading(true);
+      console.log(`Audio loading started for ${src}`);
+    };
+    const handleCanPlay = () => {
+      setIsLoading(false);
+      console.log(`Audio can play - Ready for ${src}`);
+    };
+    const handleEnded = () => {
+      setIsPlaying(false);
+      console.log(`Audio playback ended for ${src}`);
+    };
+    const handleError = (e: Event) => {
+      console.error(`Audio error for ${src}:`, e);
+      setIsLoading(false);
+    };
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('loadstart', handleLoadStart);
     audio.addEventListener('canplay', handleCanPlay);
     audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError);
 
     return () => {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
@@ -49,8 +68,9 @@ export function AudioPlayer({
       audio.removeEventListener('loadstart', handleLoadStart);
       audio.removeEventListener('canplay', handleCanPlay);
       audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleError);
     };
-  }, []);
+  }, [src]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -61,10 +81,15 @@ export function AudioPlayer({
   const togglePlayPause = () => {
     if (!audioRef.current) return;
 
+    console.log(`Audio player action: ${isPlaying ? 'pausing' : 'playing'} audio from ${src}`);
+
     if (isPlaying) {
       audioRef.current.pause();
     } else {
-      audioRef.current.play();
+      audioRef.current.play().catch(error => {
+        console.error('Error playing audio:', error);
+        console.error('Audio source:', src);
+      });
     }
     setIsPlaying(!isPlaying);
   };

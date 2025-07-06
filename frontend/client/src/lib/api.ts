@@ -3,7 +3,10 @@ import type {
   ApiHealth, 
   InsightsStatus, 
   SampleTopics, 
-  ApiInfo 
+  ApiInfo,
+  DocumentStatus,
+  ConversationStats,
+  InsightsAnalysisResponse
 } from '@/types';
 
 const API_BASE = process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:8000';
@@ -89,13 +92,13 @@ export const api = {
   },
 
   // Systematic Review
-  async generateReview(topic: string, type: string, timeRange: string): Promise<{ reviewId: string }> {
+  async generateReview(topic: string): Promise<{ review_id: string; status: string; output_file?: string; word_count?: number; preview?: string }> {
     const response = await fetch(`${API_BASE}/systematic-review/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ topic, type, timeRange }),
+      body: JSON.stringify({ topic }),
     });
     
     if (!response.ok) {
@@ -116,10 +119,10 @@ export const api = {
   },
 
   // CAG System
-  async uploadCAGDocuments(files: File[]): Promise<{ documentIds: string[] }> {
+  async uploadCAGDocuments(files: File[]): Promise<{ message: string; processed_files: string[]; total_chunks: number }> {
     const formData = new FormData();
-    files.forEach((file, index) => {
-      formData.append(`files`, file);
+    files.forEach((file) => {
+      formData.append('files', file);
     });
     
     const response = await fetch(`${API_BASE}/cag/upload`, {
@@ -134,13 +137,14 @@ export const api = {
     return response.json();
   },
 
-  async askCAGQuestion(question: string, language: string): Promise<{ answer: string; sources: string[] }> {
+  async askCAGQuestion(question: string, language: string): Promise<{ response: string }> {
+    const formData = new FormData();
+    formData.append('question', question);
+    formData.append('language', language);
+    
     const response = await fetch(`${API_BASE}/cag/ask-question`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ question, language }),
+      body: formData,
     });
     
     if (!response.ok) {
@@ -150,7 +154,7 @@ export const api = {
     return response.json();
   },
 
-  async getDocumentStatus(): Promise<any> {
+  async getDocumentStatus(): Promise<DocumentStatus> {
     const response = await fetch(`${API_BASE}/cag/document-status`);
     
     if (!response.ok) {
@@ -160,7 +164,7 @@ export const api = {
     return response.json();
   },
 
-  async getConversationStats(): Promise<any> {
+  async getConversationStats(): Promise<ConversationStats> {
     const response = await fetch(`${API_BASE}/cag/conversation-stats`);
     
     if (!response.ok) {
@@ -170,7 +174,7 @@ export const api = {
     return response.json();
   },
 
-  async resetSession(): Promise<void> {
+  async resetSession(): Promise<{ message: string }> {
     const response = await fetch(`${API_BASE}/cag/reset-session`, {
       method: 'POST',
     });
@@ -178,16 +182,34 @@ export const api = {
     if (!response.ok) {
       throw new Error('Failed to reset session');
     }
+    
+    return response.json();
+  },
+
+  async clearConversation(): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE}/cag/clear-conversation`, {
+      method: 'POST',
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to clear conversation');
+    }
+    
+    return response.json();
   },
 
   // Research Insights
-  async analyzeInsights(topic: string, sources: string[], timeRange: string): Promise<{ insights: any[] }> {
+  async analyzeInsights(topic: string, maxPapers: number = 10, maxNews: number = 8): Promise<InsightsAnalysisResponse> {
     const response = await fetch(`${API_BASE}/insights/analyze`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ topic, sources, timeRange }),
+      body: JSON.stringify({ 
+        research_focus: topic,
+        max_papers: maxPapers,
+        max_news: maxNews
+      }),
     });
     
     if (!response.ok) {
@@ -233,6 +255,23 @@ export const api = {
     
     if (!response.ok) {
       throw new Error('Failed to get API info');
+    }
+    
+    return response.json();
+  },
+
+  async getCAGHealth(): Promise<{
+    status: string;
+    timestamp: string;
+    gemini_api_configured: boolean;
+    documents_processed: boolean;
+    total_documents: number;
+    total_chunks: number;
+  }> {
+    const response = await fetch(`${API_BASE}/cag/health`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to get CAG health status');
     }
     
     return response.json();

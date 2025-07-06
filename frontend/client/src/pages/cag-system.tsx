@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,51 +6,82 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { FileUpload } from '@/components/ui/file-upload';
 import { ChatInterface } from '@/components/ui/chat-interface';
-import { Languages, Trash2 } from 'lucide-react';
+import { Languages, Trash2, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
-import { ChatMessage, CAGDocument, ConversationStats } from '@/types';
+import { ChatMessage, CAGDocument, ConversationStats, DocumentStatus } from '@/types';
 
 export default function CAGSystem() {
   const [selectedLanguage, setSelectedLanguage] = useState('en');
   const [documents, setDocuments] = useState<CAGDocument[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [conversationStats, setConversationStats] = useState<ConversationStats>({
-    totalMessages: 0,
-    languagesUsed: ['English'],
-    documentsReferenced: 0,
-    sessionDuration: 0,
-  });
   const { toast } = useToast();
+
+  // Query for document status
+  const { data: documentStatus, refetch: refetchStatus } = useQuery({
+    queryKey: ['cag-document-status'],
+    queryFn: api.getDocumentStatus,
+    refetchInterval: documents.some(doc => doc.status === 'processing') ? 2000 : false,
+  });
+
+  // Query for conversation stats
+  const { data: conversationStats, refetch: refetchStats } = useQuery({
+    queryKey: ['cag-conversation-stats'],
+    queryFn: api.getConversationStats,
+    refetchInterval: 5000, // Update every 5 seconds
+  });
+
+  // Update documents when status changes
+  useEffect(() => {
+    if (documentStatus && documentStatus.processed_files.length > 0) {
+      const updatedDocs = documentStatus.processed_files.map((filename, index) => ({
+        id: `doc-${index}`,
+        filename,
+        status: 'completed' as const,
+        uploadedAt: new Date(),
+        pageCount: Math.floor(Math.random() * 50) + 10, // We don't get this from backend
+      }));
+      setDocuments(updatedDocs);
+    }
+  }, [documentStatus]);
+
+  // Update messages from conversation history
+  useEffect(() => {
+    if (conversationStats && conversationStats.conversation_history.length > 0) {
+      const historyMessages = conversationStats.conversation_history.map((msg, index) => ({
+        id: `msg-${index}`,
+        content: msg.content,
+        sender: msg.role === 'user' ? 'user' as const : 'assistant' as const,
+        timestamp: new Date(msg.timestamp),
+        language: selectedLanguage,
+      }));
+      setMessages(historyMessages);
+    }
+  }, [conversationStats, selectedLanguage]);
 
   const uploadDocumentsMutation = useMutation({
     mutationFn: async (files: File[]) => {
       return api.uploadCAGDocuments(files);
     },
     onSuccess: (data) => {
-      const newDocuments = data.documentIds.map((id, index) => ({
-        id,
-        filename: `document_${index + 1}.pdf`,
-        status: 'processing' as const,
+      // Create document entries from the filenames
+      const newDocuments = data.processed_files.map((filename, index) => ({
+        id: `doc-${Date.now()}-${index}`,
+        filename,
+        status: 'completed' as const,
         uploadedAt: new Date(),
         pageCount: Math.floor(Math.random() * 50) + 10,
       }));
       
       setDocuments(prev => [...prev, ...newDocuments]);
       
-      // Simulate processing completion
-      setTimeout(() => {
-        setDocuments(prev => prev.map(doc => 
-          newDocuments.find(newDoc => newDoc.id === doc.id)
-            ? { ...doc, status: 'completed' }
-            : doc
-        ));
-      }, 3000);
-      
       toast({
         title: "Documents uploaded",
-        description: `${newDocuments.length} document(s) uploaded and being processed.`,
+        description: `${data.processed_files.length} document(s) uploaded and processed. Total chunks: ${data.total_chunks}`,
       });
+      
+      // Refetch status to get updated info
+      refetchStatus();
     },
     onError: (error) => {
       toast({
@@ -68,21 +99,15 @@ export default function CAGSystem() {
     onSuccess: (data) => {
       const assistantMessage: ChatMessage = {
         id: Date.now().toString(),
-        content: data.answer,
+        content: data.response,
         sender: 'assistant',
         timestamp: new Date(),
-        sources: data.sources,
         language: selectedLanguage,
       };
       setMessages(prev => [...prev, assistantMessage]);
       
-      // Update conversation stats
-      setConversationStats(prev => ({
-        ...prev,
-        totalMessages: prev.totalMessages + 1,
-        languagesUsed: [...new Set([...prev.languagesUsed, getLanguageName(selectedLanguage)])],
-        documentsReferenced: Math.max(prev.documentsReferenced, documents.length),
-      }));
+      // Refetch conversation stats to get updated history
+      refetchStats();
     },
     onError: (error) => {
       toast({
@@ -97,18 +122,37 @@ export default function CAGSystem() {
     mutationFn: async () => {
       return api.resetSession();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setMessages([]);
-      setConversationStats({
-        totalMessages: 0,
-        languagesUsed: ['English'],
-        documentsReferenced: 0,
-        sessionDuration: 0,
-      });
+      setDocuments([]);
       toast({
         title: "Session reset",
-        description: "Conversation history has been cleared.",
+        description: data.message,
       });
+      // Refetch both queries
+      refetchStatus();
+      refetchStats();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const clearConversationMutation = useMutation({
+    mutationFn: async () => {
+      return api.clearConversation();
+    },
+    onSuccess: (data) => {
+      setMessages([]);
+      toast({
+        title: "Conversation cleared",
+        description: data.message,
+      });
+      refetchStats();
     },
     onError: (error) => {
       toast({
@@ -126,7 +170,7 @@ export default function CAGSystem() {
   };
 
   const handleSendMessage = (message: string) => {
-    if (documents.length === 0) {
+    if (documents.length === 0 && (!documentStatus || documentStatus.processed_files.length === 0)) {
       toast({
         title: "No documents uploaded",
         description: "Please upload documents first.",
@@ -145,12 +189,6 @@ export default function CAGSystem() {
     
     setMessages(prev => [...prev, userMessage]);
     askQuestionMutation.mutate(message);
-    
-    // Update conversation stats
-    setConversationStats(prev => ({
-      ...prev,
-      totalMessages: prev.totalMessages + 1,
-    }));
   };
 
   const removeDocument = (id: string) => {
@@ -163,12 +201,7 @@ export default function CAGSystem() {
 
   const getLanguageName = (code: string) => {
     const languages: Record<string, string> = {
-      'en': 'English',
-      'es': 'Spanish',
-      'fr': 'French',
-      'de': 'German',
-      'zh': 'Chinese',
-      'ja': 'Japanese',
+      'en': 'English'
     };
     return languages[code] || 'Unknown';
   };
@@ -219,11 +252,6 @@ export default function CAGSystem() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="es">Spanish</SelectItem>
-                    <SelectItem value="fr">French</SelectItem>
-                    <SelectItem value="de">German</SelectItem>
-                    <SelectItem value="zh">Chinese</SelectItem>
-                    <SelectItem value="ja">Japanese</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -260,13 +288,23 @@ export default function CAGSystem() {
                   variant="outline"
                   className="w-full"
                   onClick={() => {
+                    const messageCount = conversationStats?.message_count || 0;
+                    const historyLength = conversationStats?.conversation_history.length || 0;
                     toast({
                       title: "Conversation Stats",
-                      description: `${conversationStats.totalMessages} messages, ${conversationStats.languagesUsed.length} languages used`,
+                      description: `${messageCount} messages in session, ${historyLength} in recent history`,
                     });
                   }}
                 >
                   View Conversation Stats
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => clearConversationMutation.mutate()}
+                  disabled={clearConversationMutation.isPending}
+                >
+                  Clear Conversation
                 </Button>
                 <Button
                   variant="destructive"
@@ -311,9 +349,11 @@ export default function CAGSystem() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
+                      const totalDocs = documentStatus?.processed_files.length || 0;
+                      const totalChunks = documentStatus?.total_chunks || 0;
                       toast({
                         title: "Detailed Stats",
-                        description: `Session active for ${Math.floor(conversationStats.sessionDuration / 60)} minutes`,
+                        description: `${totalDocs} documents processed, ${totalChunks} text chunks`,
                       });
                     }}
                   >
@@ -323,23 +363,38 @@ export default function CAGSystem() {
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
                     <div className="text-lg font-semibold text-primary">
-                      {conversationStats.totalMessages}
+                      {conversationStats?.message_count || 0}
                     </div>
                     <div className="text-xs text-muted-foreground">Messages</div>
                   </div>
                   <div>
                     <div className="text-lg font-semibold text-primary">
-                      {conversationStats.languagesUsed.length}
-                    </div>
-                    <div className="text-xs text-muted-foreground">Languages</div>
-                  </div>
-                  <div>
-                    <div className="text-lg font-semibold text-primary">
-                      {conversationStats.documentsReferenced}
+                      {documentStatus?.processed_files.length || 0}
                     </div>
                     <div className="text-xs text-muted-foreground">Documents</div>
                   </div>
+                  <div>
+                    <div className="text-lg font-semibold text-primary">
+                      {documentStatus?.total_chunks || 0}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Text Chunks</div>
+                  </div>
                 </div>
+                
+                {documentStatus?.status && (
+                  <div className="mt-4 p-3 bg-muted rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText className="h-4 w-4" />
+                      <span className="text-sm font-medium">Processing Status</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{documentStatus.status}</p>
+                    {documentStatus.processing_time_seconds > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Processed in {documentStatus.processing_time_seconds}s
+                      </p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

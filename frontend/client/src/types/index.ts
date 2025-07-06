@@ -73,6 +73,34 @@ export interface ResearchInsight {
   url: string;
 }
 
+export interface InsightsAnalysisResponse {
+  status: string;
+  research_focus: string;
+  papers_analyzed: number;
+  news_analyzed: number;
+  paper_insights: Array<{
+    title: string;
+    authors: string[];
+    key_contributions: string;
+    technical_implications: string;
+    potential_applications: string;
+    methodology: string;
+    significance_score: number;
+    arxiv_id: string;
+    url: string;
+  }>;
+  news_insights: Array<{
+    title: string;
+    summary: string;
+    industry_impact: string;
+    technical_relevance: string;
+    url: string;
+    source: string;
+  }>;
+  final_report: string | null;
+  report_file: string | null;
+}
+
 export interface CAGDocument {
   id: string;
   filename: string;
@@ -82,10 +110,21 @@ export interface CAGDocument {
 }
 
 export interface ConversationStats {
-  totalMessages: number;
-  languagesUsed: string[];
-  documentsReferenced: number;
-  sessionDuration: number;
+  message_count: number;
+  conversation_history: Array<{
+    role: string;
+    content: string;
+    timestamp: string;
+  }>;
+}
+
+export interface DocumentStatus {
+  status: string;
+  processed_files: string[];
+  total_chunks: number;
+  start_time: string;
+  end_time: string;
+  processing_time_seconds: number;
 }
 
 export interface ApiHealth {
@@ -99,7 +138,7 @@ export interface InsightsStatus {
 }
 
 export interface SampleTopics {
-  topics: string[];
+  sample_topics: string[];
 }
 
 export interface ApiInfo {

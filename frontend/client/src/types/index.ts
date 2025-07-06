@@ -37,6 +37,13 @@ export interface PodcastGeneration {
   style: 'conversational' | 'academic' | 'popular';
 }
 
+export interface PodcastGenerationResponse {
+  status: string;
+  audio_url?: string;
+  script_file?: string;
+  audio_file?: string;
+}
+
 export interface SystematicReview {
   id: string;
   topic: string;
@@ -157,4 +164,37 @@ export interface ApiInfo {
   }>;
   documentation: string;
   interactive_api: string;
+}
+
+// Systematic Review API Response Types
+export interface ReviewGenerationResponse {
+  review_id: string;
+  status: string;
+  output_file?: string;
+  word_count?: number;
+  preview?: string;
+}
+
+export interface ReviewContentResponse {
+  review_id: string;
+  content: string;
+  word_count: number;
+}
+
+// Gap Analysis API Response Types  
+export interface GapAnalysisResponse {
+  status: string;
+  analysis: {
+    gaps: ResearchGap[];
+    summary: string;
+    methodology_gaps?: string[];
+    technology_gaps?: string[];
+    application_gaps?: string[];
+  };
+}
+
+// Research Assistant API Types
+export interface QueryResponse {
+  result: string;
+  sources?: string[];
 }

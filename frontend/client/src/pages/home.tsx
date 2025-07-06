@@ -1,56 +1,63 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Bot, Mic, BarChart3, FileText, MessageSquare, TrendingUp, ArrowRight, Activity, CheckCircle, XCircle } from 'lucide-react';
+import { Bot, Mic, BarChart3, FileText, MessageSquare, TrendingUp, ArrowRight, Activity, Globe, Zap, Users } from 'lucide-react';
 import { Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
+import { SystemStatus } from '@/components/ui/system-status';
 
-const features = [  {
+const features = [
+  {
     icon: Bot,
     title: 'Research Assistant',
     description: 'Get AI-powered answers to your research questions instantly without file uploads.',
     href: '/research-assistant',
+    color: 'from-blue-500 to-blue-600',
+    badge: 'Interactive',
   },
-	{
-		icon: Mic,
-		title: 'Podcast Generator',
-		description: 'Transform research papers into engaging podcast conversations.',
-		href: '/podcast-generator',
-	},
-	{
-		icon: BarChart3,
-		title: 'Research Gap Analyzer',
-		description: 'Identify research gaps and opportunities in your field.',
-		href: '/gap-analyzer',
-	},
-	{
-		icon: FileText,
-		title: 'Systematic Review',
-		description: 'Generate comprehensive systematic reviews from topics or papers.',
-		href: '/systematic-review',
-	},
-	{
-		icon: MessageSquare,
-		title: 'CAG System',
-		description: 'Multi-language Q&A on uploaded documents with conversation history.',
-		href: '/cag-system',
-	},
-	{
-		icon: TrendingUp,
-		title: 'Research Insights',
-		description: 'Discover and summarize the latest research papers and news.',
-		href: '/research-insights',
-	},
+  {
+    icon: Mic,
+    title: 'Podcast Generator',
+    description: 'Transform research papers into engaging podcast conversations with multiple voices.',
+    href: '/podcast-generator',
+    color: 'from-purple-500 to-purple-600',
+    badge: 'Audio',
+  },
+  {
+    icon: BarChart3,
+    title: 'Research Gap Analyzer',
+    description: 'Identify research gaps and opportunities in your field with confidence scoring.',
+    href: '/gap-analyzer',
+    color: 'from-green-500 to-green-600',
+    badge: 'Analysis',
+  },
+  {
+    icon: FileText,
+    title: 'Systematic Review',
+    description: 'Generate comprehensive systematic reviews from topics with automated literature search.',
+    href: '/systematic-review',
+    color: 'from-orange-500 to-orange-600',
+    badge: 'Academic',
+  },
+  {
+    icon: MessageSquare,
+    title: 'CAG System',
+    description: 'Multi-language Q&A on uploaded documents with conversation history and context.',
+    href: '/cag-system',
+    color: 'from-indigo-500 to-indigo-600',
+    badge: 'Multi-language',
+  },
+  {
+    icon: TrendingUp,
+    title: 'Research Insights',
+    description: 'Discover and summarize the latest research papers and news with trend analysis.',
+    href: '/research-insights',
+    color: 'from-teal-500 to-teal-600',
+    badge: 'Real-time',
+  },
 ];
 
 export default function Home() {
-	const { data: healthData, isLoading: healthLoading } = useQuery({
-		queryKey: ['apiHealth'],
-		queryFn: () => api.getHealth(),
-		refetchInterval: 60000,
-		retry: 1,
-	});
-
 	const { data: insightsStatus } = useQuery({
 		queryKey: ['insightsStatus'],
 		queryFn: () => api.getInsightsStatus(),
@@ -58,7 +65,6 @@ export default function Home() {
 		retry: 1,
 	});
 
-	const isHealthy = healthData?.status === 'healthy';
 	const isInsightsAvailable = insightsStatus?.availability === true;
 
 	return (
@@ -123,59 +129,50 @@ export default function Home() {
 			<div className="container mx-auto px-4 py-20">
 				{/* System Status Section */}
 				<div className="mb-16">
-					<div className="max-w-4xl mx-auto">
+					<div className="max-w-6xl mx-auto">
 						<div className="text-center mb-8">
-							<h2 className="text-2xl font-bold mb-4 flex items-center justify-center gap-3">
-								<Activity className="h-6 w-6" />
-								System Status
+							<h2 className="text-3xl font-bold mb-4 flex items-center justify-center gap-3">
+								<Activity className="h-7 w-7 text-primary" />
+								System Status & Overview
 							</h2>
+							<p className="text-muted-foreground text-lg">
+								Real-time monitoring of all PaperMind services and capabilities
+							</p>
 						</div>
 						
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-							<Card className="material-elevation-2">
+						<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+							<SystemStatus compact={false} />
+							
+							{/* Quick Stats */}
+							<Card className="material-elevation-2 h-full">
 								<CardHeader className="pb-3">
 									<CardTitle className="text-lg flex items-center gap-3">
-										{healthLoading ? (
-											<div className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
-										) : isHealthy ? (
-											<CheckCircle className="h-5 w-5 text-green-500" />
-										) : (
-											<XCircle className="h-5 w-5 text-red-500" />
-										)}
-										API Service
+										<Zap className="h-5 w-5 text-yellow-500" />
+										Performance Metrics
 									</CardTitle>
 								</CardHeader>
-								<CardContent>
-									<div className="flex items-center justify-between">
-										<span className="text-sm text-gray-600 dark:text-gray-300">
-											Core API functionality
-										</span>
-										<Badge variant={isHealthy ? "default" : "destructive"}>
-											{healthLoading ? "Checking..." : isHealthy ? "Healthy" : "Offline"}
+								<CardContent className="space-y-3">
+									<div className="flex justify-between items-center">
+										<span className="text-sm text-muted-foreground">Features Available</span>
+										<Badge variant="outline">{features.length}</Badge>
+									</div>
+									<div className="flex justify-between items-center">
+										<span className="text-sm text-muted-foreground">Multi-language Support</span>
+										<Badge variant="outline">
+											<Globe className="h-3 w-3 mr-1" />
+											Yes
 										</Badge>
 									</div>
-								</CardContent>
-							</Card>
-
-							<Card className="material-elevation-2">
-								<CardHeader className="pb-3">
-									<CardTitle className="text-lg flex items-center gap-3">
-										{isInsightsAvailable ? (
-											<CheckCircle className="h-5 w-5 text-green-500" />
-										) : (
-											<XCircle className="h-5 w-5 text-yellow-500" />
-										)}
-										Research Insights
-									</CardTitle>
-								</CardHeader>
-								<CardContent>
-									<div className="flex items-center justify-between">
-										<span className="text-sm text-gray-600 dark:text-gray-300">
-											Latest research analysis
-										</span>
-										<Badge variant={isInsightsAvailable ? "default" : "secondary"}>
-											{isInsightsAvailable ? "Available" : "Limited"}
+									<div className="flex justify-between items-center">
+										<span className="text-sm text-muted-foreground">Real-time Processing</span>
+										<Badge variant="outline">
+											<Activity className="h-3 w-3 mr-1" />
+											Active
 										</Badge>
+									</div>
+									<div className="flex justify-between items-center">
+										<span className="text-sm text-muted-foreground">AI Models</span>
+										<Badge variant="outline">GPT-4 Optimized</Badge>
 									</div>
 								</CardContent>
 							</Card>
@@ -183,44 +180,43 @@ export default function Home() {
 					</div>
 				</div>
 
+				{/* Features Section */}
 				<div className="text-center mb-16">
 					<h2 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
 						Powerful Research Tools
 					</h2>
-					<p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-						Transform your research workflow with our comprehensive suite of AI-powered tools
+					<p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+						Discover our comprehensive suite of AI-powered tools designed to transform how you conduct research, analyze papers, and generate insights.
 					</p>
 				</div>
-				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+
+				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
 					{features.map((feature, index) => {
 						const Icon = feature.icon;
 						return (
-							<Link key={feature.href} href={feature.href}>
-								<Card className={`feature-card material-elevation-2 hover:material-elevation-8 h-full group overflow-hidden relative ${
-									index % 3 === 0 ? 'bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30' :
-									index % 3 === 1 ? 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30' :
-									'bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30'
-								}`}>
-									<div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-white/50 to-transparent rounded-full blur-2xl -translate-y-16 translate-x-16"></div>
+							<Link key={index} href={feature.href}>
+								<Card className="h-full cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl group material-elevation-2 gradient-border overflow-hidden relative">
+									<div className={`absolute inset-0 bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
 									<CardHeader className="relative z-10">
-										<div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 shadow-lg ${
-											index % 3 === 0 ? 'gradient-primary' :
-											index % 3 === 1 ? 'gradient-accent' :
-											'gradient-secondary'
-										} group-hover:scale-110 transition-transform duration-300`}>
-											<Icon className="h-7 w-7 text-white" />
+										<div className="flex items-center justify-between mb-4">
+											<div className={`p-3 rounded-xl bg-gradient-to-br ${feature.color} text-white shadow-lg group-hover:shadow-xl transition-shadow duration-300`}>
+												<Icon className="h-6 w-6" />
+											</div>
+											<Badge variant="secondary" className="text-xs">
+												{feature.badge}
+											</Badge>
 										</div>
-										<CardTitle className="text-xl mb-3 group-hover:text-purple-600 transition-colors">
+										<CardTitle className="text-xl group-hover:text-primary transition-colors duration-300">
 											{feature.title}
 										</CardTitle>
-										<CardDescription className="text-base text-gray-600 dark:text-gray-300 leading-relaxed">
-											{feature.description}
-										</CardDescription>
 									</CardHeader>
 									<CardContent className="relative z-10">
-										<div className="flex items-center text-purple-600 font-semibold group-hover:text-purple-700 transition-colors">
-											Try it now
-											<ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+										<CardDescription className="text-muted-foreground leading-relaxed mb-4">
+											{feature.description}
+										</CardDescription>
+										<div className="flex items-center text-sm text-primary font-medium group-hover:gap-3 transition-all duration-300">
+											<span>Get Started</span>
+											<ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
 										</div>
 									</CardContent>
 								</Card>

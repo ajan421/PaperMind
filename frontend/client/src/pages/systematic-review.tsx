@@ -4,10 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Download } from 'lucide-react';
+import { Download, RefreshCw, FileText, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
-import { SystematicReview } from '@/types';
+import { SystematicReview, ReviewGenerationResponse, ReviewContentResponse } from '@/types';
 import ReactMarkdown from 'react-markdown';
 
 export default function SystematicReviewPage() {
@@ -17,68 +17,72 @@ export default function SystematicReviewPage() {
   const [review, setReview] = useState<SystematicReview | null>(null);
   const [rawMarkdown, setRawMarkdown] = useState<string>('');
   const [generationProgress, setGenerationProgress] = useState(0);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [reviewId, setReviewId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const generateReviewMutation = useMutation({
     mutationFn: async () => {
       if (!topic) throw new Error('Topic is required');
-      return api.generateReview(topic); // Only send topic
+      setIsGenerating(true);
+      setGenerationProgress(10);
+      return api.generateReview(topic);
     },
-    onSuccess: (data) => {
-      // Start polling or handle actual backend response
-      if (data.status === 'completed' && data.preview) {
-        // If completed immediately, show preview and fetch full content
-        const mockReview: SystematicReview = {
-          id: data.review_id,
-          topic,
-          type: reviewType as any,
-          timeRange,
-          sections: {
-            abstract: data.preview || 'Review generated successfully.',
-            introduction: '',
-            methods: '',
-            results: '',
-            conclusions: '',
-            references: [],
-          },
-          statistics: {
-            studiesReviewed: data.word_count ? Math.floor(data.word_count / 100) : 50,
-            countries: 10,
-            yearsCovered: parseInt(timeRange.split('-')[0]) || 5,
-            qualityScore: 85,
-          },
-          status: 'completed',
-          generatedAt: new Date(),
-        };
-        setReview(mockReview);
-        setRawMarkdown(data.preview); // Set preview as initial content
+    onSuccess: async (data: ReviewGenerationResponse) => {
+      try {
+        setReviewId(data.review_id);
+        setGenerationProgress(30);
         
-        // Fetch the full review to get complete content
-        fetchGeneratedReview(data.review_id);
-        
-        toast({
-          title: "Review generated!",
-          description: "Your systematic review is ready.",
-        });
-      } else {
-        // Start progress simulation for processing
-        const interval = setInterval(() => {
-          setGenerationProgress(prev => {
-            if (prev >= 100) {
-              clearInterval(interval);
-              // Fetch the actual review content
-              fetchGeneratedReview(data.review_id);
-              return 0;
+        if (data.status === 'completed' && data.preview) {
+          // Show preview immediately
+          setRawMarkdown(data.preview);
+          setGenerationProgress(60);
+          
+          // Try to fetch full content
+          await fetchGeneratedReview(data.review_id);
+        } else {
+          // Start polling for completion
+          const pollInterval = setInterval(async () => {
+            try {
+              setGenerationProgress(prev => Math.min(prev + 10, 90));
+              await fetchGeneratedReview(data.review_id);
+              clearInterval(pollInterval);
+            } catch (error) {
+              // Continue polling if not ready yet
+              console.log('Review not ready yet, continuing to poll...');
             }
-            return prev + 10;
-          });
-        }, 2000); // Slower progress for realistic systematic review generation
+          }, 3000);
+          
+          // Stop polling after 2 minutes
+          setTimeout(() => {
+            clearInterval(pollInterval);
+            if (generationProgress < 100) {
+              toast({
+                title: "Generation timeout",
+                description: "Review generation is taking longer than expected. Please try refreshing.",
+                variant: "destructive",
+              });
+              setIsGenerating(false);
+              setGenerationProgress(0);
+            }
+          }, 120000);
+        }
+      } catch (error) {
+        console.error('Error handling generation response:', error);
+        setIsGenerating(false);
+        setGenerationProgress(0);
+        toast({
+          title: "Error",
+          description: "Failed to process review generation response.",
+          variant: "destructive",
+        });
       }
     },
-    onError: (error) => {
+    onError: (error: Error) => {
+      setIsGenerating(false);
       setGenerationProgress(0);
       toast({
-        title: "Error",
+        title: "Generation failed",
         description: error.message,
         variant: "destructive",
       });
@@ -87,14 +91,16 @@ export default function SystematicReviewPage() {
 
   const fetchGeneratedReview = async (reviewId: string) => {
     try {
-      const reviewData = await api.getReview(reviewId);
+      setGenerationProgress(80);
+      const reviewData: ReviewContentResponse = await api.getReview(reviewId);
       
       if (reviewData.content) {
         setRawMarkdown(reviewData.content);
+        setGenerationProgress(100);
         
         // Extract statistics from content (basic parsing)
         const wordCount = reviewData.word_count || 0;
-        const studiesMatch = reviewData.content.match(/(\d+)\s+(?:studies|papers)/i);
+        const studiesMatch = reviewData.content.match(/(\d+)\s+(?:studies|papers|articles)/i);
         const studiesReviewed = studiesMatch ? parseInt(studiesMatch[1]) : Math.max(20, Math.floor(wordCount / 100));
         
         const transformedReview: SystematicReview = {
@@ -103,7 +109,7 @@ export default function SystematicReviewPage() {
           type: reviewType as any,
           timeRange,
           sections: {
-            abstract: reviewData.content, // Just use the full content
+            abstract: reviewData.content,
             introduction: '',
             methods: '',
             results: '',
@@ -121,25 +127,29 @@ export default function SystematicReviewPage() {
         };
         
         setReview(transformedReview);
+        setIsGenerating(false);
+        
         toast({
-          title: "Review generated!",
-          description: `Systematic review completed with ${wordCount} words.`,
+          title: "Review completed!",
+          description: `Systematic review generated with ${wordCount} words and ${studiesReviewed} studies analyzed.`,
         });
       } else {
         throw new Error('No content received from review');
       }
     } catch (error) {
       console.error('Error fetching review:', error);
+      setIsGenerating(false);
+      setGenerationProgress(0);
       toast({
         title: "Error fetching review",
-        description: "Failed to retrieve the generated review.",
+        description: "Failed to retrieve the generated review. The review might still be processing.",
         variant: "destructive",
       });
     }
   };
 
   const handleGenerate = () => {
-    if (!topic) {
+    if (!topic.trim()) {
       toast({
         title: "Topic required",
         description: "Please enter a research topic first.",
@@ -147,8 +157,28 @@ export default function SystematicReviewPage() {
       });
       return;
     }
-    setGenerationProgress(1);
+    
+    // Reset state
+    setReview(null);
+    setRawMarkdown('');
+    setGenerationProgress(0);
+    setReviewId(null);
+    
     generateReviewMutation.mutate();
+  };
+
+  const handleRetryFetch = async () => {
+    if (!reviewId) {
+      toast({
+        title: "No review ID",
+        description: "Cannot retry without a review ID.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsGenerating(true);
+    await fetchGeneratedReview(reviewId);
   };
 
   const handleDownload = (format: 'pdf' | 'md') => {
@@ -217,24 +247,42 @@ export default function SystematicReviewPage() {
 
               <Button
                 onClick={handleGenerate}
-                disabled={!topic || generateReviewMutation.isPending}
+                disabled={!topic.trim() || isGenerating}
                 className="w-full"
               >
-                Generate Review
+                {isGenerating ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Generate Review
+                  </>
+                )}
               </Button>
 
-              {generationProgress > 0 && (
-                <div className="space-y-2">
+              {isGenerating && (
+                <div className="space-y-3">
                   <div className="text-center">
-                    <div className="text-sm text-muted-foreground">
-                      Generating systematic review...
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      This may take 2-5 minutes as AI searches and analyzes literature
+                    <div className="text-xs text-gray-500 mt-1">
+                      <Clock className="h-3 w-3 inline mr-1" />
+                      This process typically takes 2-5 minutes
                     </div>
                   </div>
-                  <Progress value={generationProgress} className="w-full" />
                 </div>
+              )}
+              
+              {reviewId && !isGenerating && !review && (
+                <Button
+                  variant="outline"
+                  onClick={handleRetryFetch}
+                  className="w-full"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Retry Fetch Review
+                </Button>
               )}
             </CardContent>
           </Card>
@@ -267,10 +315,33 @@ export default function SystematicReviewPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {!review ? (
+                {!review && !isGenerating ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    <div className="mb-4">📄</div>
-                    <p>Enter a research topic to generate a systematic review.</p>
+                    <div className="mb-4 text-4xl">📄</div>
+                    <p className="text-lg mb-2">Generate a Systematic Review</p>
+                    <p className="text-sm">Enter a research topic to start the automated literature review process.</p>
+                  </div>
+                ) : isGenerating ? (
+                  <div className="text-center py-8">
+                    <div className="animate-pulse mb-6">
+                      <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto mb-3"></div>
+                      <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto mb-3"></div>
+                      <div className="h-4 bg-gray-200 rounded w-5/6 mx-auto mb-6"></div>
+                      <div className="flex justify-center space-x-2">
+                        {[1,2,3].map(i => (
+                          <div key={i} className="h-2 w-2 bg-primary rounded-full animate-bounce" style={{animationDelay: `${i * 0.2}s`}}></div>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-muted-foreground">
+                      {generationProgress < 30 ? 'Setting up research parameters...' :
+                       generationProgress < 60 ? 'Searching academic databases...' :
+                       generationProgress < 90 ? 'Analyzing literature and synthesizing findings...' :
+                       'Preparing final review document...'}
+                    </p>
+                    <div className="mt-4 text-sm text-gray-500">
+                      Progress: {generationProgress}%
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-6">
@@ -309,32 +380,34 @@ export default function SystematicReviewPage() {
                     </div>
 
                     {/* Summary Statistics */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-6 border-t border-gray-200">
-                      <div className="text-center p-4 bg-gray-50 rounded-lg">
-                        <div className="text-2xl font-bold text-primary">
-                          {review.statistics.studiesReviewed}
+                    {review && (
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-6 border-t border-gray-200">
+                        <div className="text-center p-4 bg-gray-50 rounded-lg">
+                          <div className="text-2xl font-bold text-primary">
+                            {review.statistics.studiesReviewed}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Studies Reviewed</div>
                         </div>
-                        <div className="text-xs text-muted-foreground">Studies Reviewed</div>
-                      </div>
-                      <div className="text-center p-4 bg-gray-50 rounded-lg">
-                        <div className="text-2xl font-bold text-primary">
-                          {review.statistics.countries}
+                        <div className="text-center p-4 bg-gray-50 rounded-lg">
+                          <div className="text-2xl font-bold text-primary">
+                            {review.statistics.countries}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Countries</div>
                         </div>
-                        <div className="text-xs text-muted-foreground">Countries</div>
-                      </div>
-                      <div className="text-center p-4 bg-gray-50 rounded-lg">
-                        <div className="text-2xl font-bold text-primary">
-                          {review.statistics.yearsCovered}
+                        <div className="text-center p-4 bg-gray-50 rounded-lg">
+                          <div className="text-2xl font-bold text-primary">
+                            {review.statistics.yearsCovered}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Years Covered</div>
                         </div>
-                        <div className="text-xs text-muted-foreground">Years Covered</div>
-                      </div>
-                      <div className="text-center p-4 bg-gray-50 rounded-lg">
-                        <div className="text-2xl font-bold text-primary">
-                          {review.statistics.qualityScore}%
+                        <div className="text-center p-4 bg-gray-50 rounded-lg">
+                          <div className="text-2xl font-bold text-primary">
+                            {review.statistics.qualityScore}%
+                          </div>
+                          <div className="text-xs text-muted-foreground">Quality Score</div>
                         </div>
-                        <div className="text-xs text-muted-foreground">Quality Score</div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 )}
               </CardContent>

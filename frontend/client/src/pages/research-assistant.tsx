@@ -63,7 +63,7 @@ export default function ResearchAssistant() {
             </div>
             <div>
               <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
-                Research Assistant
+                Research Paper Agent
               </h1>
               <p className="text-lg text-gray-600 dark:text-gray-300">
                 Get AI-powered answers to your research questions instantly

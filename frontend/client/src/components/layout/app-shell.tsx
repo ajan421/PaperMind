@@ -3,6 +3,7 @@ import { Menu, Search, Bell, User, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { NavigationDrawer } from './navigation-drawer';
+import Footer from './footer';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -56,6 +57,8 @@ export function AppShell({ children }: AppShellProps) {
       <main className="pt-16 min-h-screen">
         {children}
       </main>
+
+      <Footer />
 
     </div>
   );

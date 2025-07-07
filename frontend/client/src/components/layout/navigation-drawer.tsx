@@ -10,7 +10,7 @@ interface NavigationDrawerProps {
 
 const navigationItems = [
   { href: '/', label: 'Home', icon: Home },
-  { href: '/research-assistant', label: 'Research Assistant', icon: Bot },
+  { href: '/research-assistant', label: 'Research Paper Agent', icon: Bot },
   { href: '/podcast-generator', label: 'Podcast Generator', icon: Mic },
   { href: '/gap-analyzer', label: 'Research Gap Analyzer', icon: BarChart3 },
   { href: '/systematic-review', label: 'Systematic Review', icon: FileText },

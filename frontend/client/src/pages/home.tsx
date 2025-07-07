@@ -9,7 +9,7 @@ import { SystemStatus } from '@/components/ui/system-status';
 const features = [
   {
     icon: Bot,
-    title: 'Research Assistant',
+    title: 'Research Paper Agent',
     description: 'Get AI-powered answers to your research questions instantly without file uploads.',
     href: '/research-assistant',
     color: 'from-blue-500 to-blue-600',

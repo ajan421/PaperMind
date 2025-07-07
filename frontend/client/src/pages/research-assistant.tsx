@@ -47,10 +47,10 @@ export default function ResearchAssistant() {
 
 
   const quickQuestions = [
-    "What are the latest trends in AI research?",
-    "Explain transformer architectures",
-    "What is reinforcement learning?",
-    "How does machine learning work?",
+    "Can you find 8 papers on quantum machine learning?",
+    "Find recent papers (2023-2024) about CRISPR applications in treating genetic disorders, focusing on clinical trials and safety protocols",
+    "Find and analyze papers from 2023-2024 about the application of transformer architectures in protein folding prediction",
+    "Find papers on the use of reinforcement learning in autonomous driving systems, focusing on safety and efficiency improvements",
   ];
 
   return (

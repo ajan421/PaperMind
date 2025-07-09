@@ -1,0 +1,86 @@
+📝 Prompt for Building a PaperMind Frontend (React + Material UI)
+Project Overview
+You are building a frontend for the PaperMind research automation platform. The backend is a FastAPI application with multiple endpoints for research paper analysis, podcast generation, systematic reviews, research gap analysis, and more. The frontend should be built using React and Material UI for a modern, responsive, and user-friendly experience.
+Key Features & API Endpoints
+1. Landing Page
+Brief introduction to PaperMind and its capabilities.
+Navigation to all main tools.
+Modern, clean design using Material UI components.
+2. Research Assistant
+Endpoint: POST /research/ask
+Function: Upload a PDF and ask questions about its content. Get AI-powered answers.
+UI:
+PDF upload field
+Text input for questions
+Display AI answers in a chat-like format
+3. Podcast Generator
+Endpoints:
+POST /podcast/generate (upload PDF, generate podcast)
+GET /podcast/stream/{filename} (stream audio)
+Function: Convert research papers into engaging podcast conversations.
+UI:
+PDF upload field
+Button to generate podcast
+Audio player with streaming support for generated podcasts
+4. Research Gap Analyzer
+Endpoint: POST /gaps/analyze
+Function: Analyze a research paper (PDF) and identify research gaps and opportunities.
+UI:
+PDF upload field
+Button to analyze
+Display identified gaps, suggestions, and confidence scores
+5. Systematic Review Generator
+Endpoints:
+POST /systematic-review/generate (start review)
+GET /systematic-review/output/{review_id} (get review)
+Function: Generate comprehensive systematic reviews from a topic or uploaded papers.
+UI:
+Topic input field
+Button to generate review
+Display review sections (abstract, introduction, methods, results, conclusions, references)
+Download as Markdown
+6. CAG (Cache-Augmented Generation) System
+Endpoints:
+POST /cag/upload (upload PDFs)
+POST /cag/ask-question (ask questions about uploaded docs, multi-language)
+GET /cag/document-status (processing status)
+GET /cag/conversation-stats (conversation history)
+POST /cag/reset-session (reset session)
+Function: Multi-language Q&A on uploaded documents, with translation and conversation history.
+UI:
+PDF upload field (multiple files)
+Language selector
+Text input for questions
+Display answers and conversation history
+7. Research Insights Tool
+Endpoint: (custom, e.g., /insights/analyze)
+Function: Discover and summarize the latest research papers and news in AI/ML.
+UI:
+Topic input field
+Button to analyze
+Display summarized research papers, news, and technical insights
+General Requirements
+Navigation: Use Material UI’s AppBar/Drawer for navigation between tools.
+Responsiveness: All pages must be mobile-friendly.
+Feedback: Show loading indicators, error messages, and success notifications.
+File Uploads: Use Material UI file upload components.
+API Integration: Use Axios or Fetch for API calls. Handle authentication if needed.
+Theming: Use Material UI theming for a consistent look and feel.
+Accessibility: Follow accessibility best practices.
+Folder Structure Suggestion
+Apply to .env
+API Reference (Summary)
+Tool	Endpoint(s)	Method	Description
+Research Assistant	/research/ask	POST	Ask questions about research papers
+Podcast Generator	/podcast/generate, /podcast/stream/{file}	POST/GET	Generate and stream podcasts
+Gap Analyzer	/gaps/analyze	POST	Analyze research gaps in papers
+Systematic Review	/systematic-review/generate, /output/{id}	POST/GET	Generate and fetch systematic reviews
+CAG System	/cag/upload, /cag/ask-question, ...	POST/GET	Multi-language Q&A on uploaded docs
+Research Insights	/insights/analyze (custom)	POST	Summarize latest research/news
+Design Tips
+Use Material UI Cards, Tables, and Accordions for displaying results.
+Use Material UI Dialogs for confirmations and error messages.
+Use Material UI Progress/Loading components for async actions.
+Use Material UI Tabs for multi-section displays (e.g., systematic review sections).
+Extra
+Add a README with screenshots and API usage examples.

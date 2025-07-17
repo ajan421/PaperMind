@@ -13,6 +13,7 @@ import GapAnalyzer from "@/pages/gap-analyzer";
 import SystematicReview from "@/pages/systematic-review";
 import CAGSystem from "@/pages/cag-system";
 import ResearchInsights from "@/pages/research-insights";
+import PDFPreviewDemo from "@/pages/pdf-preview-demo";
 import Footer from "./components/layout/footer";
 
 function Router() {
@@ -25,6 +26,7 @@ function Router() {
       <Route path="/systematic-review" component={SystematicReview} />
       <Route path="/cag-system" component={CAGSystem} />
       <Route path="/research-insights" component={ResearchInsights} />
+      <Route path="/pdf-preview-demo" component={PDFPreviewDemo} />
       <Route component={NotFound} />
       
     </Switch>

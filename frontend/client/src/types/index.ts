@@ -44,6 +44,18 @@ export interface PodcastGenerationResponse {
   audio_file?: string;
 }
 
+export interface Reference {
+  id: string;
+  title: string;
+  authors: string[];
+  journal?: string;
+  year: number;
+  doi?: string;
+  url?: string;
+  pmid?: string;
+  arxivId?: string;
+}
+
 export interface SystematicReview {
   id: string;
   topic: string;
@@ -55,7 +67,7 @@ export interface SystematicReview {
     methods: string;
     results: string;
     conclusions: string;
-    references: string[];
+    references: Reference[];
   };
   statistics: {
     studiesReviewed: number;

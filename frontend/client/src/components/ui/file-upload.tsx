@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
-import { Upload, X, FileText, AlertCircle } from 'lucide-react';
+import { Upload, X, FileText, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { Button } from './button';
 import { cn } from '@/lib/utils';
+import { PDFPreview } from './pdf-preview';
 
 interface FileUploadProps {
   onFilesChange: (files: File[]) => void;
@@ -10,6 +11,8 @@ interface FileUploadProps {
   maxSize?: number; // in MB
   className?: string;
   placeholder?: string;
+  showPreview?: boolean;
+  previewClassName?: string;
 }
 
 export function FileUpload({
@@ -19,10 +22,13 @@ export function FileUpload({
   maxSize = 10,
   className,
   placeholder = 'Drop your PDF here or click to browse',
+  showPreview = true,
+  previewClassName,
 }: FileUploadProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPDFPreview, setShowPDFPreview] = useState(true);
 
   const validateFile = (file: File): string | null => {
     if (maxSize && file.size > maxSize * 1024 * 1024) {
@@ -82,6 +88,9 @@ export function FileUpload({
     setFiles(updatedFiles);
     onFilesChange(updatedFiles);
   }, [files, onFilesChange]);
+
+  // Get the first PDF file for preview
+  const previewFile = files.find(file => file.type === 'application/pdf') || null;
 
   return (
     <div className={cn('space-y-4', className)}>
@@ -144,6 +153,16 @@ export function FileUpload({
             </div>
           ))}
         </div>
+      )}
+
+      {/* PDF Preview */}
+      {showPreview && previewFile && (
+        <PDFPreview
+          file={previewFile}
+          className={previewClassName}
+          showPreview={showPDFPreview}
+          onTogglePreview={setShowPDFPreview}
+        />
       )}
     </div>
   );

@@ -4,11 +4,154 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Download, RefreshCw, FileText, Clock } from 'lucide-react';
+import { Download, RefreshCw, FileText, Clock, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api';
-import { SystematicReview, ReviewGenerationResponse, ReviewContentResponse } from '@/types';
+import { SystematicReview, ReviewGenerationResponse, ReviewContentResponse, Reference } from '@/types';
 import ReactMarkdown from 'react-markdown';
+
+// Utility function to parse references from markdown content
+const parseReferences = (content: string): Reference[] => {
+  const references: Reference[] = [];
+  
+  // Look for references section in the markdown
+  const referencesSectionMatch = content.match(/#{1,3}\s*References?\s*\n([\s\S]*?)(?=\n#{1,3}|\n\n[A-Z]|$)/i);
+  
+  if (referencesSectionMatch) {
+    const referencesText = referencesSectionMatch[1];
+    
+    // Split by numbered references or newlines (each line is a reference)
+    const refItems = referencesText.split(/\n\n+/).filter(item => item.trim() && !item.trim().startsWith('---') && !item.trim().startsWith('Please ensure'));
+    
+    refItems.forEach((refText, index) => {
+      const trimmedRef = refText.trim();
+      if (!trimmedRef || trimmedRef.length < 20) return; // Skip very short lines
+      
+      // Extract authors and year (before the period and year in parentheses)
+      const authorYearMatch = trimmedRef.match(/^([^.]+?)\s+\((\d{4})\)\./);
+      let authors: string[] = [];
+      let year = new Date().getFullYear();
+      
+      if (authorYearMatch) {
+        const authorString = authorYearMatch[1];
+        // Split authors by comma or &
+        authors = authorString.split(/[,&]/).map(author => author.trim()).filter(author => author.length > 0);
+        year = parseInt(authorYearMatch[2]);
+      }
+      
+      // Extract title (usually after authors and year, before journal name)
+      let titleMatch = trimmedRef.match(/\(\d{4}\)\.\s*([^.]+)\./);
+      if (!titleMatch) {
+        // Fallback: try to find title between author and journal
+        titleMatch = trimmedRef.match(/^[^.]+\.\s*([^.]+)\./);
+      }
+      const title = titleMatch ? titleMatch[1].trim() : trimmedRef.substring(0, 100);
+      
+      // Extract journal (usually in italics or after title)
+      const journalMatch = trimmedRef.match(/\*([^*]+)\*/);
+      const journal = journalMatch ? journalMatch[1] : '';
+      
+      // Extract DOI URLs
+      const doiMatch = trimmedRef.match(/(?:https?:\/\/)?(?:dx\.)?doi\.org\/(10\.\S+)/i);
+      const httpDoiMatch = trimmedRef.match(/(https?:\/\/(?:dx\.)?doi\.org\/10\.\S+)/i);
+      
+      // Extract PubMed URLs
+      const pubmedMatch = trimmedRef.match(/(?:https?:\/\/)?(?:www\.)?pubmed\.ncbi\.nlm\.nih\.gov\/(\d+)/i);
+      const httpPubmedMatch = trimmedRef.match(/(https?:\/\/(?:www\.)?pubmed\.ncbi\.nlm\.nih\.gov\/\d+)/i);
+      
+      // Extract arXiv URLs
+      const arxivMatch = trimmedRef.match(/(?:https?:\/\/)?arxiv\.org\/abs\/([0-9]+\.[0-9]+)/i);
+      const httpArxivMatch = trimmedRef.match(/(https?:\/\/arxiv\.org\/abs\/[0-9]+\.[0-9]+)/i);
+      
+      // Extract general URLs
+      const urlMatch = trimmedRef.match(/(https?:\/\/[^\s\)]+)/i);
+      
+      let url = '';
+      let doi = '';
+      let pmid = '';
+      let arxivId = '';
+      
+      if (httpDoiMatch) {
+        url = httpDoiMatch[1];
+        doi = doiMatch ? doiMatch[1] : '';
+      } else if (doiMatch) {
+        doi = doiMatch[1];
+        url = `https://doi.org/${doi}`;
+      } else if (httpPubmedMatch) {
+        url = httpPubmedMatch[1];
+        pmid = pubmedMatch ? pubmedMatch[1] : '';
+      } else if (pubmedMatch) {
+        pmid = pubmedMatch[1];
+        url = `https://pubmed.ncbi.nlm.nih.gov/${pmid}`;
+      } else if (httpArxivMatch) {
+        url = httpArxivMatch[1];
+        arxivId = arxivMatch ? arxivMatch[1] : '';
+      } else if (arxivMatch) {
+        arxivId = arxivMatch[1];
+        url = `https://arxiv.org/abs/${arxivId}`;
+      } else if (urlMatch) {
+        url = urlMatch[1];
+      }
+      
+      references.push({
+        id: `ref-${index + 1}`,
+        title: title.trim(),
+        authors,
+        journal,
+        year,
+        doi,
+        url,
+        pmid,
+        arxivId,
+      });
+    });
+  }
+  
+  return references;
+};
+
+// Utility function to enhance markdown with clickable links
+const enhanceMarkdownWithLinks = (content: string): string => {
+  let enhanced = content;
+  
+  // Convert DOI patterns to links (but not if they're already in a link)
+  enhanced = enhanced.replace(
+    /(?<!\]\(https?:\/\/[^)\s]*?)(?<![\[\(])https?:\/\/(?:dx\.)?doi\.org\/(10\.\d{4,}\/[^\s\)\]]+)/g,
+    '[doi.org/$1](https://doi.org/$1)'
+  );
+  
+  // Convert standalone DOIs to links
+  enhanced = enhanced.replace(
+    /(?<![\[\(])(?<!https?:\/\/[^\s]*?)(10\.\d{4,}\/[^\s\)\]]+)(?![^\[]*\])/g,
+    '[$1](https://doi.org/$1)'
+  );
+  
+  // Convert PubMed URLs to more readable links
+  enhanced = enhanced.replace(
+    /(?<![\[\(])https?:\/\/(?:www\.)?pubmed\.ncbi\.nlm\.nih\.gov\/(\d{8,})/gi,
+    '[PubMed: $1](https://pubmed.ncbi.nlm.nih.gov/$1)'
+  );
+  
+  // Convert PubMed IDs to links
+  enhanced = enhanced.replace(
+    /(?<![\[\(])PMID:?\s*(\d{8,})/gi,
+    '[PMID: $1](https://pubmed.ncbi.nlm.nih.gov/$1)'
+  );
+  
+  // Convert arXiv URLs to more readable links
+  enhanced = enhanced.replace(
+    /(?<![\[\(])https?:\/\/arxiv\.org\/abs\/([0-9]+\.[0-9]+)/gi,
+    '[arXiv:$1](https://arxiv.org/abs/$1)'
+  );
+  
+  // Convert arXiv IDs to links
+  enhanced = enhanced.replace(
+    /(?<![\[\(])arXiv:?\s*([0-9]+\.[0-9]+)/gi,
+    '[arXiv:$1](https://arxiv.org/abs/$1)'
+  );
+  
+  return enhanced;
+};
 
 export default function SystematicReviewPage() {
   const [topic, setTopic] = useState('');
@@ -69,6 +212,7 @@ export default function SystematicReviewPage() {
                 const wordCount = reviewData.word_count || reviewData.content.split(/\s+/).length;
                 const studiesMatch = reviewData.content.match(/(\d+)\s+(?:studies|papers|articles)/i);
                 const studiesReviewed = studiesMatch ? parseInt(studiesMatch[1]) : Math.max(20, Math.floor(wordCount / 100));
+                const parsedReferences = parseReferences(reviewData.content);
                 
                 const transformedReview: SystematicReview = {
                   id: data.review_id,
@@ -81,7 +225,7 @@ export default function SystematicReviewPage() {
                     methods: '',
                     results: '',
                     conclusions: '',
-                    references: [],
+                    references: parsedReferences,
                   },
                   statistics: {
                     studiesReviewed,
@@ -115,6 +259,7 @@ export default function SystematicReviewPage() {
             const wordCount = data.preview.split(/\s+/).length;
             const studiesMatch = data.preview.match(/(\d+)\s+(?:studies|papers|articles)/i);
             const studiesReviewed = studiesMatch ? parseInt(studiesMatch[1]) : Math.max(20, Math.floor(wordCount / 100));
+            const parsedReferences = parseReferences(data.preview);
             
             const transformedReview: SystematicReview = {
               id: data.review_id,
@@ -127,7 +272,7 @@ export default function SystematicReviewPage() {
                 methods: '',
                 results: '',
                 conclusions: '',
-                references: [],
+                references: parsedReferences,
               },
               statistics: {
                 studiesReviewed,
@@ -222,6 +367,7 @@ export default function SystematicReviewPage() {
         const wordCount = reviewData.word_count || reviewData.content.split(/\s+/).length;
         const studiesMatch = reviewData.content.match(/(\d+)\s+(?:studies|papers|articles)/i);
         const studiesReviewed = studiesMatch ? parseInt(studiesMatch[1]) : Math.max(20, Math.floor(wordCount / 100));
+        const parsedReferences = parseReferences(reviewData.content);
         
         const transformedReview: SystematicReview = {
           id: reviewId,
@@ -234,7 +380,7 @@ export default function SystematicReviewPage() {
             methods: '',
             results: '',
             conclusions: '',
-            references: [],
+            references: parsedReferences,
           },
           statistics: {
             studiesReviewed,
@@ -270,6 +416,7 @@ export default function SystematicReviewPage() {
         const wordCount = rawMarkdown.split(/\s+/).length;
         const studiesMatch = rawMarkdown.match(/(\d+)\s+(?:studies|papers|articles)/i);
         const studiesReviewed = studiesMatch ? parseInt(studiesMatch[1]) : Math.max(20, Math.floor(wordCount / 100));
+        const parsedReferences = parseReferences(rawMarkdown);
         
         const transformedReview: SystematicReview = {
           id: reviewId,
@@ -282,7 +429,7 @@ export default function SystematicReviewPage() {
             methods: '',
             results: '',
             conclusions: '',
-            references: [],
+            references: parsedReferences,
           },
           statistics: {
             studiesReviewed,
@@ -459,6 +606,7 @@ export default function SystematicReviewPage() {
                         const wordCount = reviewData.word_count || reviewData.content.split(/\s+/).length;
                         const studiesMatch = reviewData.content.match(/(\d+)\s+(?:studies|papers|articles)/i);
                         const studiesReviewed = studiesMatch ? parseInt(studiesMatch[1]) : 150; // From the file we saw
+                        const parsedReferences = parseReferences(reviewData.content);
                         
                         const transformedReview: SystematicReview = {
                           id: testId,
@@ -471,7 +619,7 @@ export default function SystematicReviewPage() {
                             methods: '',
                             results: '',
                             conclusions: '',
-                            references: [],
+                            references: parsedReferences,
                           },
                           statistics: {
                             studiesReviewed,
@@ -540,6 +688,7 @@ export default function SystematicReviewPage() {
                             const wordCount = rawMarkdown.split(/\s+/).length;
                             const studiesMatch = rawMarkdown.match(/(\d+)\s+(?:studies|papers|articles)/i);
                             const studiesReviewed = studiesMatch ? parseInt(studiesMatch[1]) : Math.max(20, Math.floor(wordCount / 100));
+                            const parsedReferences = parseReferences(rawMarkdown);
                             
                             const transformedReview: SystematicReview = {
                               id: reviewId,
@@ -552,7 +701,7 @@ export default function SystematicReviewPage() {
                                 methods: '',
                                 results: '',
                                 conclusions: '',
-                                references: [],
+                                references: parsedReferences,
                               },
                               statistics: {
                                 studiesReviewed,
@@ -812,9 +961,20 @@ export default function SystematicReviewPage() {
                               strong: ({children}) => <strong className="font-semibold text-gray-800">{children}</strong>,
                               em: ({children}) => <em className="italic text-gray-700">{children}</em>,
                               blockquote: ({children}) => <blockquote className="border-l-4 border-gray-300 pl-4 my-4 italic text-gray-600">{children}</blockquote>,
+                              a: ({href, children}) => (
+                                <a 
+                                  href={href} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 underline decoration-blue-300 hover:decoration-blue-500 transition-colors duration-200 inline-flex items-center gap-1"
+                                >
+                                  {children}
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
+                              ),
                             }}
                           >
-                            {rawMarkdown}
+                            {enhanceMarkdownWithLinks(rawMarkdown)}
                           </ReactMarkdown>
                         </div>
                       ) : (
@@ -831,32 +991,93 @@ export default function SystematicReviewPage() {
 
                     {/* Summary Statistics */}
                     {review && (
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-6 border-t border-gray-200">
-                        <div className="text-center p-4 bg-gray-50 rounded-lg">
-                          <div className="text-2xl font-bold text-primary">
-                            {review.statistics.studiesReviewed}
+                      <>
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-6 border-t border-gray-200">
+                          <div className="text-center p-4 bg-gray-50 rounded-lg">
+                            <div className="text-2xl font-bold text-primary">
+                              {review.statistics.studiesReviewed}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Studies Reviewed</div>
                           </div>
-                          <div className="text-xs text-muted-foreground">Studies Reviewed</div>
-                        </div>
-                        <div className="text-center p-4 bg-gray-50 rounded-lg">
-                          <div className="text-2xl font-bold text-primary">
-                            {review.statistics.countries}
+                          <div className="text-center p-4 bg-gray-50 rounded-lg">
+                            <div className="text-2xl font-bold text-primary">
+                              {review.statistics.countries}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Countries</div>
                           </div>
-                          <div className="text-xs text-muted-foreground">Countries</div>
-                        </div>
-                        <div className="text-center p-4 bg-gray-50 rounded-lg">
-                          <div className="text-2xl font-bold text-primary">
-                            {review.statistics.yearsCovered}
+                          <div className="text-center p-4 bg-gray-50 rounded-lg">
+                            <div className="text-2xl font-bold text-primary">
+                              {review.statistics.yearsCovered}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Years Covered</div>
                           </div>
-                          <div className="text-xs text-muted-foreground">Years Covered</div>
-                        </div>
-                        <div className="text-center p-4 bg-gray-50 rounded-lg">
-                          <div className="text-2xl font-bold text-primary">
-                            {review.statistics.qualityScore}%
+                          <div className="text-center p-4 bg-gray-50 rounded-lg">
+                            <div className="text-2xl font-bold text-primary">
+                              {review.statistics.qualityScore}%
+                            </div>
+                            <div className="text-xs text-muted-foreground">Quality Score</div>
                           </div>
-                          <div className="text-xs text-muted-foreground">Quality Score</div>
                         </div>
-                      </div>
+
+                        {/* Parsed References Section */}
+                        {review.sections.references.length > 0 && (
+                          <div className="pt-6 border-t border-gray-200 mt-6">
+                            <h3 className="text-lg font-semibold mb-4 text-gray-800">Key References</h3>
+                            <div className="space-y-4">
+                              {review.sections.references.slice(0, 10).map((ref, index) => (
+                                <div key={ref.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                      <p className="font-medium text-gray-900 mb-2">{ref.title}</p>
+                                      {ref.authors.length > 0 && (
+                                        <p className="text-sm text-gray-600 mb-2">
+                                          {ref.authors.join(', ')} ({ref.year})
+                                        </p>
+                                      )}
+                                      {ref.journal && (
+                                        <p className="text-sm text-gray-500 mb-2">{ref.journal}</p>
+                                      )}
+                                      <div className="flex flex-wrap gap-2">
+                                        {ref.url && (
+                                          <a
+                                            href={ref.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 px-3 py-1 text-xs bg-blue-100 text-blue-800 rounded-full hover:bg-blue-200 transition-colors"
+                                          >
+                                            <ExternalLink className="h-3 w-3" />
+                                            View Paper
+                                          </a>
+                                        )}
+                                        {ref.doi && (
+                                          <span className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full">
+                                            DOI: {ref.doi}
+                                          </span>
+                                        )}
+                                        {ref.pmid && (
+                                          <span className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-full">
+                                            PMID: {ref.pmid}
+                                          </span>
+                                        )}
+                                        {ref.arxivId && (
+                                          <span className="px-3 py-1 text-xs bg-purple-100 text-purple-700 rounded-full">
+                                            arXiv: {ref.arxivId}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                              {review.sections.references.length > 10 && (
+                                <p className="text-sm text-gray-500 text-center">
+                                  ... and {review.sections.references.length - 10} more references
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}

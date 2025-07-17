@@ -185,6 +185,8 @@ export default function PodcastGenerator() {
                 accept=".pdf"
                 maxSize={10}
                 placeholder="Upload Research Paper"
+                showPreview={true}
+                previewClassName="mt-4"
               />
 
               {uploadedFile && (

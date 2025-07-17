@@ -143,6 +143,8 @@ export default function GapAnalyzer() {
                 accept=".pdf"
                 maxSize={10}
                 placeholder="Upload research paper"
+                showPreview={true}
+                previewClassName="mt-4"
               />
 
               <Button
@@ -205,7 +207,7 @@ export default function GapAnalyzer() {
                               ))}
                             </div>
                           )}
-                          {analysisResult.mainPaper.findings && (
+                          {analysisResult.mainPaper.findings && typeof analysisResult.mainPaper.findings === 'string' && (
                             <p className="text-sm text-blue-800">
                               <strong>Key Findings:</strong> {analysisResult.mainPaper.findings.substring(0, 200)}...
                             </p>

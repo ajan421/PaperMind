@@ -216,7 +216,7 @@ Return the revised paper with the implemented recommended changes.
 
 # Tools setup
 tools = [AcademicPaperSearchTool()]
-model = ChatOpenAI(model='gpt-4', temperature=0.3)
+model = ChatOpenAI(model='gpt-4o-mini', temperature=0.3)
 model_with_tools = model.bind_tools(tools)  # Bind tools to model
 temperature = 0.1
 
@@ -432,7 +432,7 @@ def paper_analyzer(state: AgentState):
                             HumanMessage(content=md_text)
                         ]
 
-                        model_analysis = ChatOpenAI(model='gpt-4')
+                        model_analysis = ChatOpenAI(model='gpt-4o-mini')
                         response = model_analysis.invoke(messages, temperature=0.1)
                         print(response)
                         analyses += str(response.content) + "\n\n"
@@ -499,7 +499,7 @@ def write_abstract(state: AgentState):
         SystemMessage(content=f"Review Plan: {review_plan_text}"),
         SystemMessage(content=f"Analyses: {analyses_text}")
     ]
-    model_instance = ChatOpenAI(model='gpt-4')
+    model_instance = ChatOpenAI(model='gpt-4o-mini')
     response = _make_api_call(model_instance, messages)
     print(response)
     print()
@@ -528,7 +528,7 @@ def write_introduction(state: AgentState):
         SystemMessage(content=f"Review Plan: {review_plan_text}"),
         SystemMessage(content=f"Analyses: {analyses_text}")
     ]
-    model_instance = ChatOpenAI(model='gpt-4')
+    model_instance = ChatOpenAI(model='gpt-4o-mini')
     response = _make_api_call(model_instance, messages)
     print(response)
     print()
@@ -557,7 +557,7 @@ def write_methods(state: AgentState):
         SystemMessage(content=f"Review Plan: {review_plan_text}"),
         SystemMessage(content=f"Analyses: {analyses_text}")
     ]
-    model_instance = ChatOpenAI(model='gpt-4')
+    model_instance = ChatOpenAI(model='gpt-4o-mini')
     response = _make_api_call(model_instance, messages)
     print(response)
     print()
@@ -586,7 +586,7 @@ def write_results(state: AgentState):
         SystemMessage(content=f"Review Plan: {review_plan_text}"),
         SystemMessage(content=f"Analyses: {analyses_text}")
     ]
-    model_instance = ChatOpenAI(model='gpt-4')
+    model_instance = ChatOpenAI(model='gpt-4o-mini')
     response = _make_api_call(model_instance, messages)
     print(response)
     print()
@@ -615,7 +615,7 @@ def write_conclusion(state: AgentState):
         SystemMessage(content=f"Review Plan: {review_plan_text}"),
         SystemMessage(content=f"Analyses: {analyses_text}")
     ]
-    model_instance = ChatOpenAI(model='gpt-4')
+    model_instance = ChatOpenAI(model='gpt-4o-mini')
     response = _make_api_call(model_instance, messages)
     print(response)
     print()
@@ -644,7 +644,7 @@ def write_references(state: AgentState):
         SystemMessage(content=f"Review Plan: {review_plan_text}"),
         SystemMessage(content=f"Analyses: {analyses_text}")
     ]
-    model_instance = ChatOpenAI(model='gpt-4')
+    model_instance = ChatOpenAI(model='gpt-4o-mini')
     response = _make_api_call(model_instance, messages)
     print(response)
     print()

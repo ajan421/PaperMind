@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 import os
 import json
 from pathlib import Path
-import fitz  # PyMuPDF
 from openai import OpenAI, APIConnectionError, RateLimitError, APIStatusError
 from pydub import AudioSegment
 import azure.cognitiveservices.speech as speechsdk

@@ -314,7 +314,7 @@ def format_tools_description(tools: list[BaseTool]) -> str:
     return "\n\n".join([f"- {tool.name}: {tool.description}\n Input arguments: {tool.args}" for tool in tools])
 
 # LLMs
-base_llm = ChatOpenAI(model="gpt-4o", temperature=0.7)
+base_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
 decision_making_llm = base_llm.with_structured_output(DecisionMakingOutput)
 agent_llm = base_llm.bind_tools(tools)
 judge_llm = base_llm.with_structured_output(JudgeOutput)

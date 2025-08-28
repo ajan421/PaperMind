@@ -8,6 +8,7 @@ from AgentPodcast import podcast_router
 from systematicreview import systematic_review_router
 from cag import cag_router
 from insights import insights_router
+from cag_evaluation import evaluation_router
 
 app = FastAPI(
     title="PaperMind API - Research Tools",
@@ -62,6 +63,7 @@ app.include_router(podcast_router, prefix="/podcast", tags=["Podcast Generation"
 app.include_router(systematic_review_router, prefix="/systematic-review", tags=["Systematic Review"])
 app.include_router(cag_router, prefix="/cag", tags=["Cache-Augmented Generation"])
 app.include_router(insights_router, prefix="/insights", tags=["Research Insights"])
+app.include_router(evaluation_router, prefix="/evaluation", tags=["CAG Evaluation"])
 
 @app.get("/")
 async def root():

@@ -1,0 +1,107 @@
+/* PDF Preview Styles */
+.pdf-preview-container {
+  margin-top: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: white;
+  box-shadow: 0 1px 3px 0 rgba(255, 255, 255, 0.1), 0 1px 2px 0 rgba(255, 255, 255, 0.06);
+}
+
+.pdf-viewer-container {
+  overflow: hidden;
+  border-radius: 0.375rem;
+}
+
+.pdf-viewer-container iframe {
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  transition: transform 0.2s ease-in-out;
+}
+
+.pdf-preview-container .card-header {
+  background: #f8fafc;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* File Upload Zone Styles */
+.file-upload-zone {
+  border: 2px dashed #d1d5db;
+  border-radius: 0.5rem;
+  background: #fafafa;
+  transition: all 0.3s ease;
+}
+
+.file-upload-zone:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.file-upload-zone.dragover {
+  border-color: #3b82f6;
+  background: #dbeafe;
+  transform: scale(1.01);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .pdf-preview-container {
+    background: #1f2937;
+    border-color: #374151;
+  }
+  
+  .pdf-preview-container .card-header {
+    background: #111827;
+    border-bottom-color: #374151;
+  }
+  
+  .pdf-viewer-container iframe {
+    border-color: #4b5563;
+    background: #111827;
+  }
+  
+  .file-upload-zone {
+    background: #1f2937;
+    border-color: #4b5563;
+  }
+  
+  .file-upload-zone:hover {
+    background: #1e3a8a;
+    border-color: #3b82f6;
+  }
+  
+  .file-upload-zone.dragover {
+    background: #1e40af;
+  }
+}
+
+/* Animation for preview toggle */
+.pdf-preview-container [data-state="open"] {
+  animation: slideDown 0.2s ease-out;
+}
+
+.pdf-preview-container [data-state="closed"] {
+  animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}

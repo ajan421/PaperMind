@@ -493,7 +493,7 @@ class ReportGenerationAgent:
 ## Data Sources
 - Research Papers: ArXiv.org
 - News Articles: Various technical publications
-- Analysis: GPT-4 powered insights
+- Analysis: GPT-4o-mini powered insights
 
 *This report was generated automatically by Research Insights AI*
 """
